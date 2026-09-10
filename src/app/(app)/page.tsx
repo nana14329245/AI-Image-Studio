@@ -1,0 +1,29 @@
+import Link from "next/link";
+import PageHeader from "@/components/PageHeader";
+
+const tools = [
+  { href: "/upscale", number: "001", title: "4K UPSCALE", text: "เพิ่มความละเอียด 2× หรือ 4× พร้อมรักษารายละเอียดของภาพ", meta: "ENHANCE / RESOLUTION", symbol: "↗" },
+  { href: "/product", number: "002", title: "PRODUCT STUDIO", text: "เปลี่ยนรูปสินค้าธรรมดาให้เป็นภาพพร้อมขายสำหรับ Marketplace", meta: "COMMERCE / PRODUCT", symbol: "□" },
+  { href: "/ads", number: "003", title: "AD STUDIO", text: "สร้างภาพโฆษณาหลายสัดส่วน พร้อมข้อความและ CTA", meta: "CAMPAIGN / CREATIVE", symbol: "▣" },
+  { href: "/portrait", number: "004", title: "PROFESSIONAL PHOTO", text: "จัดภาพโปรไฟล์ให้สุภาพ พร้อมพื้นหลังและขนาดสำหรับสมัครงาน", meta: "PROFILE / CAREER", symbol: "◎" },
+];
+
+export default function Home() {
+  return <>
+    <PageHeader eyebrow="AI IMAGE STUDIO / WORKSPACE" number="HOME / 000" title={<>Better images.<br />Built for work<span className="text-accent">.</span></>} description={<>เครื่องมือภาพ AI สำหรับงานจริง ตั้งแต่การเพิ่มความคม ไปจนถึงภาพสินค้าและโฆษณา</>} />
+    <div className="page-wrap">
+      <div className="mb-5 flex items-end justify-between border-b border-line pb-3"><p className="micro">SELECT A TOOL</p><span className="font-mono text-xs text-muted">04 MODULES / 01 ACTIVE</span></div>
+      <section className="card-grid">
+        {tools.map(tool => <Link key={tool.href} href={tool.href} className="tool-card control-focus">
+          <span className="tool-number micro text-muted">{tool.number}</span>
+          <div><div className="mb-10 text-4xl font-light">{tool.symbol}</div><p className="micro mb-3 text-accent-dark">{tool.meta}</p><h2 className="text-3xl font-semibold tracking-[-.05em]">{tool.title}</h2><p className="mt-3 max-w-md text-sm leading-6 text-muted">{tool.text}</p></div>
+          <div className="mt-8 flex items-center justify-between border-t border-line-soft pt-4"><span className="micro">OPEN MODULE</span><span className="text-xl">↗</span></div>
+        </Link>)}
+      </section>
+      <section className="mt-16 grid gap-8 border-t border-ink pt-6 md:grid-cols-[1fr_2fr]">
+        <p className="micro">WORKFLOW / 01</p>
+        <div className="grid gap-8 sm:grid-cols-3"><div><b className="font-mono text-lg">01</b><p className="mt-2 text-sm font-medium">Upload</p><p className="mt-1 text-xs leading-5 text-muted">เริ่มจากรูปต้นฉบับของคุณ</p></div><div><b className="font-mono text-lg">02</b><p className="mt-2 text-sm font-medium">Configure</p><p className="mt-1 text-xs leading-5 text-muted">เลือกสไตล์ ขนาด หรือแพลตฟอร์ม</p></div><div><b className="font-mono text-lg">03</b><p className="mt-2 text-sm font-medium">Generate</p><p className="mt-1 text-xs leading-5 text-muted">ประมวลผลและบันทึกลง Gallery</p></div></div>
+      </section>
+    </div>
+  </>;
+}
