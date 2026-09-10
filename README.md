@@ -27,3 +27,4 @@ Images are sent to Replicate when processing starts. API usage may incur charges
 Live AI processing requires a valid token, service credit and model access. A production deployment should provide authentication, rate limits and platform-level request limits before exposing the paid endpoint publicly. Configure enough server execution time for model processing. Remote image downloads depend on the provider's CORS headers; the open-image link is available as a fallback.
 
 This project preserves the original Next.js dependencies and lockfile. The archive excludes node_modules, build caches, Git history and local secrets.
+# AI-Image-Studio
