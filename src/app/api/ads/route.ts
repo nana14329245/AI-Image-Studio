@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { brandColorPromptHint, getBrandKit } from "@/lib/brandKit";
 import {
   createGenerationContext,
   enqueueGeneration,
@@ -42,11 +43,13 @@ export async function POST(req: NextRequest) {
   const aspectRatio = ASPECT_RATIOS[format as keyof typeof ASPECT_RATIOS];
 
   try {
+    const kit = await getBrandKit(context.supabase, context.userId);
+    const brandHint = brandColorPromptHint(kit);
     const queued = await enqueueGeneration(context, "fal-ai/flux-pro/kontext", {
       image_url: await toFalImageInput(imageUrl),
       aspect_ratio: aspectRatio,
       num_images: 1,
-      prompt: `Create one premium ${platform} advertising image for ${productName || "the product in the reference image"}. Preserve the exact product's shape, color, branding, and details. Showcase these benefits visually: ${benefits || "high quality and everyday usefulness"}. Use a compelling commercial composition with clear negative space for separately overlaid copy. Do not render text, letters, logos, or watermarks in the image.`,
+      prompt: `Create one premium ${platform} advertising image for ${productName || "the product in the reference image"}. Preserve the exact product's shape, color, branding, and details. Showcase these benefits visually: ${benefits || "high quality and everyday usefulness"}. Use a compelling commercial composition with clear negative space for separately overlaid copy. Do not render text, letters, logos, or watermarks in the image.${brandHint ? ` ${brandHint}` : ""}`,
     }, { productName, benefits, platform, format });
     return NextResponse.json(queued, { status: 202 });
   } catch (error) {
