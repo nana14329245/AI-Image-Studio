@@ -10,7 +10,6 @@ type PromoPlan = {
   id: "pro" | "business";
   name: string;
   badge: string;
-  regularPrice: string;
   promoPrice: string;
   period: string;
   credits: number;
@@ -23,7 +22,6 @@ const PROMO_PLANS: PromoPlan[] = [
     id: "pro",
     name: "Creator Pro",
     badge: "⚡ ยอดนิยมอันดับ 1",
-    regularPrice: "฿590",
     promoPrice: "฿299",
     period: "/เดือน",
     credits: 500,
@@ -40,7 +38,6 @@ const PROMO_PLANS: PromoPlan[] = [
     id: "business",
     name: "Business Studio",
     badge: "🔥 คุ้มค่าสูงสุดสำหรับร้านค้า",
-    regularPrice: "฿1,990",
     promoPrice: "฿999",
     period: "/เดือน",
     credits: 2000,
@@ -145,29 +142,6 @@ export default function PromotionsClient({
           </div>
         )}
 
-        {/* Hero Promotion Banner */}
-        <div className="mb-10 border-2 border-accent bg-surface-alt p-6 md:p-8">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <span className="border border-accent bg-paper px-2.5 py-1 font-mono text-xs font-bold text-accent uppercase">
-                ⚡ FLASH SALE 50% OFF
-              </span>
-              <h2 className="mt-3 text-2xl font-bold md:text-3xl">
-                เริ่มต้นยกระดับภาพสินค้าสู่ระดับมืออาชีพ
-              </h2>
-              <p className="mt-2 text-sm text-muted">
-                สมัครแพ็กเกจวันนี้ รับส่วนลดทันที 50% พร้อมเครดิตสร้างภาพและขยาย 4K ได้ทันที
-              </p>
-            </div>
-            <div className="text-right">
-              <span className="font-mono text-xs text-muted block">PROMO CODE</span>
-              <span className="mt-1 inline-block border border-ink bg-paper px-3 py-1.5 font-mono text-sm font-bold">
-                AUTO-APPLIED ✓
-              </span>
-            </div>
-          </div>
-        </div>
-
         {/* Monthly Subscription Special Tiers */}
         <div className="mb-12">
           <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
@@ -206,9 +180,6 @@ export default function PromotionsClient({
                     <div className="mt-4 flex items-baseline gap-3">
                       <span className="text-4xl font-extrabold text-ink">{plan.promoPrice}</span>
                       <span className="font-mono text-sm text-muted">{plan.period}</span>
-                      <span className="text-sm font-medium text-muted line-through">
-                        {plan.regularPrice}
-                      </span>
                     </div>
 
                     <p className="mt-2 font-mono text-xs font-semibold text-accent">
