@@ -15,6 +15,7 @@ const items = [
   { href: "/gallery", label: "Gallery", icon: "▦", section: "LIBRARY" },
   { href: "/account", label: "Account", icon: "⚙" },
   { href: "/promotions", label: "Promotions", icon: "★" },
+  { href: "/brand-kit", label: "Brand Kit", icon: "◆" },
 ];
 
 function Brand() {

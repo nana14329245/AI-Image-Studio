@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { brandColorPromptHint, getBrandKit } from "@/lib/brandKit";
 import {
   createGenerationContext,
   enqueueGeneration,
@@ -39,11 +40,13 @@ export async function POST(req: NextRequest) {
   if (context instanceof NextResponse) return context;
 
   try {
+    const kit = await getBrandKit(context.supabase, context.userId);
+    const brandHint = brandColorPromptHint(kit);
     const queued = await enqueueGeneration(context, "fal-ai/flux-pro/kontext", {
       image_url: await toFalImageInput(imageUrl),
       aspect_ratio: ASPECT_RATIOS[size as keyof typeof ASPECT_RATIOS],
       num_images: 1,
-      prompt: `Create a natural, professional ${career} headshot from the reference image. Preserve the person's identity, facial features, hairstyle, skin tone, and expression. Use a clean ${background} background, flattering studio lighting, polished professional attire appropriate for ${career}, and a realistic photographic result. No text, logos, or watermarks.`,
+      prompt: `Create a natural, professional ${career} headshot from the reference image. Preserve the person's identity, facial features, hairstyle, skin tone, and expression. Use a clean ${background} background, flattering studio lighting, polished professional attire appropriate for ${career}, and a realistic photographic result. No text, logos, or watermarks.${brandHint ? ` ${brandHint}` : ""}`,
     }, { career, background, size });
     return NextResponse.json(queued, { status: 202 });
   } catch (error) {

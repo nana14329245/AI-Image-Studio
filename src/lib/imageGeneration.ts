@@ -1,5 +1,6 @@
 import { createFalClient } from "@fal-ai/client";
 import { NextRequest, NextResponse } from "next/server";
+import { getBrandKit, overlayBrandLogo } from "@/lib/brandKit";
 import { InsufficientCreditsError, spendCredits } from "@/lib/credits";
 import { TOOL_CREDIT_COST } from "@/lib/plans";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
@@ -294,7 +295,8 @@ export async function completeGeneration(
 
   const cost = TOOL_CREDIT_COST[context.tool];
   try {
-    const stored = await persistGeneratedImages(context.userId, context.generationId, results);
+    const logoUrl = context.tool !== "upscale" ? (await getBrandKit(context.supabase, context.userId)).logoUrl : null;
+    const stored = await persistGeneratedImages(context.userId, context.generationId, results, logoUrl);
     const remaining = await spendCredits(context.supabase, context.userId, cost, context.tool, {
       generationId: context.generationId,
       ...metadata,
@@ -330,7 +332,7 @@ export async function completeGeneration(
   }
 }
 
-export async function persistGeneratedImages(userId: string, generationId: string, results: string[]) {
+export async function persistGeneratedImages(userId: string, generationId: string, results: string[], logoUrl?: string | null) {
   const paths: string[] = [];
   const urls: string[] = [];
   const storage = createServiceRoleClient().storage.from("generations");
@@ -339,8 +341,15 @@ export async function persistGeneratedImages(userId: string, generationId: strin
     const result = results[i];
     const providerResponse = await fetch(result);
     if (!providerResponse.ok) throw new Error("Unable to retrieve generated image");
-    const image = await providerResponse.blob();
+    let image = await providerResponse.blob();
     if (!image.type.startsWith("image/")) throw new Error("Provider returned an invalid image");
+    if (logoUrl) {
+      try {
+        image = await overlayBrandLogo(image, logoUrl);
+      } catch (error) {
+        console.error("[persistGeneratedImages] brand logo overlay failed", error);
+      }
+    }
     const extension = image.type === "image/jpeg" ? "jpg" : image.type === "image/webp" ? "webp" : "png";
     const path = i === 0
       ? `${userId}/${generationId}/output.${extension}`

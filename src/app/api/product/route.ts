@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { brandColorPromptHint, getBrandKit } from "@/lib/brandKit";
 import {
   createGenerationContext,
   enqueueMultipleGenerations,
@@ -33,12 +34,15 @@ export async function POST(req: NextRequest) {
 
   try {
     const falImage = await toFalImageInput(imageUrl);
+    const kit = await getBrandKit(context.supabase, context.userId);
+    const brandHint = brandColorPromptHint(kit);
+    const brandSuffix = brandHint ? ` ${brandHint}` : "";
 
     const anglePrompts = [
-      `A single commercial product photograph of the product from a straight-on eye-level front view. High-end e-commerce product photography with a ${background} setting and ${style} studio lighting. Crisp focus, clean shadows, realistic reflections. Preserve exact product shape, colors, labels, and branding. Single full-frame image only, no collage, no split screen, no grid, no borders, no text, no watermark.`,
-      `A single commercial product photograph of the product from a dynamic 45-degree three-quarter perspective angle showing side depth and dimension. High-end e-commerce product photography with a ${background} setting and ${style} studio lighting. Crisp focus, clean shadows, realistic reflections. Preserve exact product shape, colors, labels, and branding. Single full-frame image only, no collage, no split screen, no grid, no borders, no text, no watermark.`,
-      `A single commercial product photograph of the product from an overhead top-down flatlay angle. Magazine editorial aesthetic with a ${background} setting and ${style} lighting. Crisp focus, clean shadows. Preserve exact product shape, colors, labels, and branding. Single full-frame image only, no collage, no split screen, no grid, no borders, no text, no watermark.`,
-      `A single commercial product photograph of the product placed naturally in an ambient lifestyle in-context scene. Warm natural lighting with a ${background} setting and ${style} aesthetic. Realistic environment and depth of field. Preserve exact product shape, colors, labels, and branding. Single full-frame image only, no collage, no split screen, no grid, no borders, no text, no watermark.`,
+      `A single commercial product photograph of the product from a straight-on eye-level front view. High-end e-commerce product photography with a ${background} setting and ${style} studio lighting. Crisp focus, clean shadows, realistic reflections. Preserve exact product shape, colors, labels, and branding. Single full-frame image only, no collage, no split screen, no grid, no borders, no text, no watermark.${brandSuffix}`,
+      `A single commercial product photograph of the product from a dynamic 45-degree three-quarter perspective angle showing side depth and dimension. High-end e-commerce product photography with a ${background} setting and ${style} studio lighting. Crisp focus, clean shadows, realistic reflections. Preserve exact product shape, colors, labels, and branding. Single full-frame image only, no collage, no split screen, no grid, no borders, no text, no watermark.${brandSuffix}`,
+      `A single commercial product photograph of the product from an overhead top-down flatlay angle. Magazine editorial aesthetic with a ${background} setting and ${style} lighting. Crisp focus, clean shadows. Preserve exact product shape, colors, labels, and branding. Single full-frame image only, no collage, no split screen, no grid, no borders, no text, no watermark.${brandSuffix}`,
+      `A single commercial product photograph of the product placed naturally in an ambient lifestyle in-context scene. Warm natural lighting with a ${background} setting and ${style} aesthetic. Realistic environment and depth of field. Preserve exact product shape, colors, labels, and branding. Single full-frame image only, no collage, no split screen, no grid, no borders, no text, no watermark.${brandSuffix}`,
     ];
 
     const inputs = anglePrompts.map(prompt => ({
