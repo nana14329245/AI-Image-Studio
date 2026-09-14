@@ -92,37 +92,56 @@ export async function enqueueMultipleGenerations(
   inputs: Array<Record<string, unknown>>,
   metadata: Record<string, unknown>
 ) {
-  try {
-    const fal = createFal();
-    const queuedList = await Promise.all(
-      inputs.map(input => fal.queue.submit(endpoint, { input }))
+  const fal = createFal();
+  const settled = await Promise.allSettled(inputs.map(input => fal.queue.submit(endpoint, { input })));
+  const succeeded = settled.filter(
+    (r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof fal.queue.submit>>> => r.status === "fulfilled"
+  );
+  const anyFailed = settled.some(r => r.status === "rejected");
+  const requestIds = succeeded.map(r => r.value.request_id);
+
+  if (requestIds.length === 0) {
+    console.error(
+      "fal.ai multiple queue submission failed",
+      settled.find((r): r is PromiseRejectedResult => r.status === "rejected")?.reason
     );
-    const requestIds = queuedList.map(q => q.request_id);
-    const primaryRequestId = requestIds[0];
-    const { error } = await context.supabase
-      .from("generations")
-      .update({
-        fal_endpoint: endpoint,
-        fal_request_id: primaryRequestId,
-        generation_metadata: {
-          ...metadata,
-          fal_request_ids: requestIds,
-        },
-      })
-      .eq("id", context.generationId)
-      .eq("status", "processing");
-    if (error) throw error;
-    return {
-      generationId: context.generationId,
-      progress: 5,
-      status: "queued" as const,
-      queuePosition: queuedList[0]?.queue_position,
-    };
-  } catch (error) {
-    console.error("fal.ai multiple queue submission failed", error);
     await failGeneration(context, "queue_submission_error");
+    throw new Error("queue_submission_error");
+  }
+
+  const primaryRequestId = requestIds[0];
+  const { error } = await context.supabase
+    .from("generations")
+    .update({
+      fal_endpoint: endpoint,
+      fal_request_id: primaryRequestId,
+      status: anyFailed ? "failed" : "processing",
+      error: anyFailed ? "partial_queue_submission_error" : null,
+      generation_metadata: {
+        ...metadata,
+        fal_request_ids: requestIds,
+      },
+    })
+    .eq("id", context.generationId)
+    .eq("status", "processing");
+  if (error) {
+    console.error("fal.ai multiple queue submission: failed to persist request ids", error);
     throw error;
   }
+  if (anyFailed) {
+    console.error(
+      "fal.ai multiple queue submission partially failed",
+      settled.find((r): r is PromiseRejectedResult => r.status === "rejected")?.reason
+    );
+    throw new Error("partial_queue_submission_error");
+  }
+
+  return {
+    generationId: context.generationId,
+    progress: 5,
+    status: "queued" as const,
+    queuePosition: succeeded[0]?.value.queue_position,
+  };
 }
 
   export async function getQueuedGenerationStatus(generationId: string) {
@@ -285,7 +304,7 @@ export async function completeGeneration(
       results: stored.urls,
       output_paths: stored.paths,
     };
-    await context.supabase
+    const { error: finalizeError } = await context.supabase
       .from("generations")
       .update({
         status: "completed",
@@ -295,6 +314,7 @@ export async function completeGeneration(
         generation_metadata: updatedMetadata,
       })
       .eq("id", context.generationId);
+    if (finalizeError) console.error("[completeGeneration] failed to mark completed", context.generationId, finalizeError);
     return { remaining, result: stored.urls[0], results: stored.urls, generationId: context.generationId };
   } catch (error) {
     if (error instanceof InsufficientCreditsError) {

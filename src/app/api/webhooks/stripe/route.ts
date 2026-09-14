@@ -61,6 +61,7 @@ export async function POST(req: NextRequest) {
         await grantCredits(supabase, userId, plan.monthlyCredits, "subscription_grant", {
           subscriptionId: subscription.id,
           event: "checkout.session.completed",
+          stripeEventId: event.id,
         });
       }
       break;
@@ -106,6 +107,7 @@ export async function POST(req: NextRequest) {
         await grantCredits(supabase, userId, plan.monthlyCredits, "subscription_grant", {
           subscriptionId: subscription.id,
           event: "invoice.paid",
+          stripeEventId: event.id,
         });
       }
       break;

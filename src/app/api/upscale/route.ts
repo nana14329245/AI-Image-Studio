@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createGenerationContext, enqueueGeneration } from "@/lib/imageGeneration";
+import { createGenerationContext, enqueueGeneration, failGeneration } from "@/lib/imageGeneration";
 
 export const maxDuration = 300;
 
@@ -62,6 +62,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(queued, { status: 202 });
   } catch (error) {
     console.error("fal.ai upscale request failed", error);
+    await failGeneration(context, error instanceof Error ? error.message : "generation_failed");
     return NextResponse.json({ error: "ขยายภาพไม่สำเร็จ กรุณาตรวจสอบการตั้งค่าบริการแล้วลองอีกครั้ง" }, { status: 502 });
   }
 }

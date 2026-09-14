@@ -10,6 +10,7 @@ const LIMITS: Record<
   product: { userLimit: 8, userWindowSeconds: 60, ipLimit: 16, ipWindowSeconds: 60 },
   ads: { userLimit: 8, userWindowSeconds: 60, ipLimit: 16, ipWindowSeconds: 60 },
   portrait: { userLimit: 8, userWindowSeconds: 60, ipLimit: 16, ipWindowSeconds: 60 },
+  billing: { userLimit: 10, userWindowSeconds: 60, ipLimit: 20, ipWindowSeconds: 60 },
   default: { userLimit: 20, userWindowSeconds: 60, ipLimit: 40, ipWindowSeconds: 60 },
 };
 

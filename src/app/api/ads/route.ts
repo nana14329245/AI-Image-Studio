@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   createGenerationContext,
   enqueueGeneration,
+  failGeneration,
   isSupportedImageDataUrl,
   toFalImageInput,
 } from "@/lib/imageGeneration";
@@ -50,6 +51,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(queued, { status: 202 });
   } catch (error) {
     console.error("fal.ai ad generation failed", error);
+    await failGeneration(context, error instanceof Error ? error.message : "generation_failed");
     return NextResponse.json({ error: "สร้างภาพโฆษณาไม่สำเร็จ กรุณาตรวจสอบการตั้งค่าบริการแล้วลองอีกครั้ง" }, { status: 502 });
   }
 }
