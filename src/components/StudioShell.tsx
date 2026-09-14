@@ -14,6 +14,7 @@ const items = [
   { href: "/portrait", label: "Professional Photo", icon: "◎" },
   { href: "/gallery", label: "Gallery", icon: "▦", section: "LIBRARY" },
   { href: "/account", label: "Account", icon: "⚙" },
+  { href: "/promotions", label: "Promotions", icon: "★" },
 ];
 
 function Brand() {

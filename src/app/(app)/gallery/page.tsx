@@ -1,6 +1,54 @@
-"use client";
-import { useState } from "react";
 import PageHeader from "@/components/PageHeader";
-const tabs=["All","Upscale","Product","Ads","Portrait"];
-const samples=[{type:"Upscale",label:"4K / 4×",src:"https://images.unsplash.com/photo-1497250681960-ef046c08a56e?auto=format&fit=crop&w=800&q=80"},{type:"Product",label:"Luxury / Studio",src:"https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=800&q=80"},{type:"Ads",label:"Instagram / 1:1",src:"https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&w=800&q=80"},{type:"Portrait",label:"Office / Resume",src:"https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=800&q=80"},{type:"Product",label:"Clean / Marketplace",src:"https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=800&q=80"},{type:"Ads",label:"TikTok / 9:16",src:"https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=800&q=80"}];
-export default function GalleryPage(){const [tab,setTab]=useState("All"),shown=samples.filter(x=>tab==="All"||x.type===tab);return <><PageHeader eyebrow="LIBRARY / OUTPUTS" number="LIBRARY / 005" title={<>Everything you<br/>have made<span className="text-accent">.</span></>} description={<>รวมผลงานจากทุกเครื่องมือไว้ในที่เดียว ตอนนี้ใช้ข้อมูลตัวอย่างเพื่อออกแบบ UI — Database จะเชื่อมใน Phase ถัดไป</>}/><div className="page-wrap"><div className="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-ink pb-4"><div className="flex flex-wrap gap-1">{tabs.map(x=><button key={x} onClick={()=>setTab(x)} className={`px-4 py-2 text-sm ${tab===x?"bg-ink text-white":"border border-transparent hover:border-line"}`}>{x}</button>)}</div><span className="micro text-muted">{shown.length.toString().padStart(2,"0")} ITEMS</span></div><div className="gallery-grid">{shown.map((x,i)=><article key={i} className="group"><div className="gallery-item"><img src={x.src} alt={x.label} loading="lazy"/><div className="absolute inset-x-0 bottom-0 translate-y-full bg-ink p-3 text-white transition-transform group-hover:translate-y-0"><p className="micro">{x.type}</p><p className="mt-1 text-xs">{x.label}</p></div></div><div className="mt-2 flex justify-between text-xs"><span>{x.label}</span><span className="font-mono">0{i+1}</span></div></article>)}</div></div></>}
+import { createClient } from "@/lib/supabase/server";
+import GalleryClient, { type GenerationItem } from "./GalleryClient";
+
+const tabs = [
+  { label: "All", value: undefined },
+  { label: "Upscale", value: "upscale" },
+  { label: "Product", value: "product" },
+  { label: "Ads", value: "ads" },
+  { label: "Portrait", value: "portrait" },
+] as const;
+
+type GalleryPageProps = {
+  searchParams: Promise<{ tool?: string | string[] }>;
+};
+
+export default async function GalleryPage({ searchParams }: GalleryPageProps) {
+  const { tool: requestedTool } = await searchParams;
+  const tool = typeof requestedTool === "string" && tabs.some((tab) => tab.value === requestedTool)
+    ? requestedTool
+    : undefined;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let generations: GenerationItem[] = [];
+
+  if (user) {
+    let query = supabase
+      .from("generations")
+      .select("id, tool, output_url, created_at, scale")
+      .eq("user_id", user.id)
+      .eq("status", "completed")
+      .order("created_at", { ascending: false });
+
+    if (tool) query = query.eq("tool", tool);
+
+    const { data } = await query;
+    generations = data ?? [];
+  }
+
+  return (
+    <>
+      <PageHeader
+        eyebrow="LIBRARY / OUTPUTS"
+        number="LIBRARY / 005"
+        title={<>Everything you<br />have made<span className="text-accent">.</span></>}
+        description="รวมผลงานจากทุกเครื่องมือไว้ในที่เดียว พร้อมปุ่มดาวน์โหลดและลบภาพ"
+      />
+      <GalleryClient initialGenerations={generations} activeTool={tool} />
+    </>
+  );
+}

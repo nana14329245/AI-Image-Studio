@@ -17,6 +17,7 @@ async function upsertFromSubscription(
   const periodEndUnix = subscription.items.data[0]?.current_period_end;
 
   const update: Record<string, unknown> = {
+    stripe_customer_id: subscription.customer as string,
     stripe_subscription_id: subscription.id,
     subscription_status: subscription.status,
     plan: plan.id,
