@@ -7,7 +7,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import { createClient } from "@/lib/supabase/client";
 
 const items = [
-  { href: "/", label: "Dashboard", icon: "⌂" },
+  { href: "/dashboard", label: "Dashboard", icon: "⌂" },
   { href: "/upscale", label: "4K Upscale", icon: "↗", section: "TOOLS" },
   { href: "/product", label: "Product Studio", icon: "□" },
   { href: "/ads", label: "Ad Studio", icon: "▣" },
@@ -19,7 +19,7 @@ const items = [
 ];
 
 function Brand() {
-  return <Link href="/" aria-label="AI Image Studio home" className="text-xl font-extrabold tracking-[-0.07em] control-focus">
+  return <Link href="/dashboard" aria-label="AI Image Studio home" className="text-xl font-extrabold tracking-[-0.07em] control-focus">
     AI<span className="mx-1 text-accent">/</span>IMAGE<span className="ml-2 align-top text-[9px] tracking-normal">STUDIO</span>
   </Link>;
 }
