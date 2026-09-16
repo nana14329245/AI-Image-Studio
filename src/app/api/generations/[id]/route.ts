@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ownedGenerationPaths } from "@/lib/generationStorage";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 
 export async function DELETE(
@@ -24,25 +25,15 @@ export async function DELETE(
     return NextResponse.json({ error: "ไม่พบรูปภาพนี้ หรือคุณไม่มีสิทธิ์ลบ" }, { status: 404 });
   }
 
-  // Gather all storage paths associated with this generation
-  const storagePaths: string[] = [];
-  if (generation.output_path) storagePaths.push(generation.output_path);
+  const storagePaths = ownedGenerationPaths(user.id, id, generation.output_path, generation.generation_metadata);
 
-  const metadata = generation.generation_metadata as Record<string, unknown> | null;
-  if (Array.isArray(metadata?.output_paths)) {
-    for (const p of metadata.output_paths) {
-      if (typeof p === "string" && !storagePaths.includes(p)) {
-        storagePaths.push(p);
-      }
-    }
-  }
-
-  // Delete files from Supabase Storage
   if (storagePaths.length > 0) {
-    try {
-      await createServiceRoleClient().storage.from("generations").remove(storagePaths);
-    } catch (err) {
-      console.error("Failed to delete storage objects", err);
+    // Supabase reports storage failures in the result rather than by throwing, so
+    // the row is kept when removal fails: deleting it would orphan the files.
+    const { error: removeError } = await createServiceRoleClient().storage.from("generations").remove(storagePaths);
+    if (removeError) {
+      console.error("Failed to delete storage objects", id, removeError);
+      return NextResponse.json({ error: "ลบไฟล์ภาพไม่สำเร็จ กรุณาลองใหม่" }, { status: 500 });
     }
   }
 
