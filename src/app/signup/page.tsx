@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { track } from "@/lib/analytics";
 import { useState, type FormEvent } from "react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -34,6 +35,7 @@ export default function SignupPage() {
       setError(error.message);
       return;
     }
+    track("signup_completed", { method: "email" });
     setDone(true);
   }
 

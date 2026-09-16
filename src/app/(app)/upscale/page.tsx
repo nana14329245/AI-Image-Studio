@@ -14,7 +14,7 @@ function Arrow({ down = false }: { down?: boolean }) { return <svg aria-hidden="
 export default function UpscalePage() {
   const [source, setSource] = useState<Source | null>(null), [url, setUrl] = useState(""), [scale, setScale] = useState(2), [enhancement, setEnhancement] = useState<"dehaze" | "vivid">("dehaze"), [result, setResult] = useState<string | null>(null), [generationId, setGenerationId] = useState<string | null>(null), [resultScale, setResultScale] = useState(2), [view, setView] = useState<"original" | "result">("original"), [busy, setBusy] = useState(false), [loading, setLoading] = useState(false), [dragging, setDragging] = useState(false), [error, setError] = useState("");
   const input = useRef<HTMLInputElement>(null); const selection = useRef(0); const router = useRouter();
-  const { progress, message, track } = useGenerationProgress();
+  const { progress, message, track } = useGenerationProgress("upscale");
 
   async function loadImage(imageUrl: string, name: string) {
     const ticket = ++selection.current; setLoading(true); setError(""); setResult(null); setGenerationId(null); setSource(null); setView("original");

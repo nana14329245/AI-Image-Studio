@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
+import AnalyticsProvider from "@/components/AnalyticsProvider";
 import { getSiteUrl } from "@/lib/siteUrl";
 import "./globals.css";
 
@@ -29,7 +30,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const theme = (await cookies()).get("theme")?.value === "dark" ? "dark" : "light";
   return (
     <html lang="th" data-theme={theme}>
-      <body>{children}</body>
+      <body>
+        <AnalyticsProvider />
+        {children}
+      </body>
     </html>
   );
 }

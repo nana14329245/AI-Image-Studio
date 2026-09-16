@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { track as trackEvent } from "@/lib/analytics";
 
 type StatusResponse = {
   status?: "queued" | "generating" | "saving" | "completed" | "failed" | "processing";
@@ -17,24 +18,32 @@ type StatusResponse = {
 
 const wait = (milliseconds: number) => new Promise(resolve => setTimeout(resolve, milliseconds));
 
-export function useGenerationProgress() {
+export function useGenerationProgress(tool: "upscale" | "product" | "ads" | "portrait") {
   const [progress, setProgress] = useState(0);
   const [message, setMessage] = useState("");
 
   const track = useCallback(async (generationId: string) => {
     setProgress(5);
     setMessage("กำลังส่งงานเข้าคิว");
+    trackEvent("generation_started", { tool });
     for (let attempt = 0; attempt < 600; attempt += 1) {
       await wait(1_000);
       const response = await fetch(`/api/generations/${generationId}/status`, { cache: "no-store" });
       const data = await response.json() as StatusResponse;
-      if (!response.ok || data.status === "failed") throw new Error(data.error || "สร้างภาพไม่สำเร็จ กรุณาลองใหม่");
+      if (!response.ok || data.status === "failed") {
+        trackEvent("generation_failed", { tool });
+        throw new Error(data.error || "สร้างภาพไม่สำเร็จ กรุณาลองใหม่");
+      }
       setProgress(data.progress ?? 5);
       setMessage(data.queuePosition ? `กำลังรอคิวสร้างภาพ (คิวที่ ${data.queuePosition})` : data.message || "กำลังสร้างภาพ");
-      if (data.status === "completed" && data.result && data.generationId) return data as Required<Pick<StatusResponse, "result" | "generationId">> & StatusResponse;
+      if (data.status === "completed" && data.result && data.generationId) {
+        trackEvent("generation_completed", { tool });
+        return data as Required<Pick<StatusResponse, "result" | "generationId">> & StatusResponse;
+      }
     }
+    trackEvent("generation_failed", { tool, reason: "timeout" });
     throw new Error("งานยังไม่เสร็จภายในเวลาที่กำหนด กรุณาตรวจสอบผลลัพธ์ใน Gallery แล้วลองใหม่");
-  }, []);
+  }, [tool]);
 
   return { progress, message, track };
 }
