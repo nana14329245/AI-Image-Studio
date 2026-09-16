@@ -85,13 +85,17 @@ export default async function LandingPage() {
           </div>
           <div className="card-grid">
             {TOOLS.map((tool) => (
-              <div key={tool.href} className="tool-card">
+              <Link key={tool.href} href="/signup" className="tool-card control-focus">
                 <div>
                   <div className="mb-6 text-4xl font-light">{tool.symbol}</div>
                   <h3 className="text-2xl font-semibold tracking-[-.03em]">{tool.title}</h3>
                   <p className="mt-3 max-w-md text-sm leading-6 text-muted">{tool.text}</p>
                 </div>
-              </div>
+                <div className="mt-8 flex items-center justify-between border-t border-line-soft pt-4">
+                  <span className="micro">เริ่มใช้ฟรี</span>
+                  <span aria-hidden="true" className="text-xl">↗</span>
+                </div>
+              </Link>
             ))}
           </div>
           <div className="mt-6 border-2 border-accent bg-surface-alt p-6 md:p-8">
@@ -109,7 +113,7 @@ export default async function LandingPage() {
             <h2 className="mt-2 text-2xl font-semibold tracking-[-.03em] sm:text-3xl">เริ่มฟรี อัปเกรดเมื่อพร้อม</h2>
           </div>
           <div className="grid gap-6 md:grid-cols-3">
-            <div className="border border-line bg-panel p-6">
+            <div className="flex flex-col border border-line bg-panel p-6">
               <p className="font-mono text-xs font-bold text-muted">{free.name.toUpperCase()}</p>
               <p className="mt-3 text-3xl font-extrabold">{free.monthlyPriceLabel}</p>
               <ul className="mt-5 space-y-2 text-xs text-muted">
@@ -117,9 +121,12 @@ export default async function LandingPage() {
                   <li key={f} className="flex items-center gap-2"><span className="font-bold text-accent">✓</span>{f}</li>
                 ))}
               </ul>
+              <div className="mt-auto pt-6">
+                <Link href="/signup" className="btn-outline flex items-center justify-center text-sm control-focus">เริ่มต้นฟรี</Link>
+              </div>
             </div>
             {paid.map((plan) => (
-              <div key={plan.id} className={`border p-6 ${plan.id === "pro" ? "border-2 border-accent bg-surface-alt" : "border-ink bg-panel"}`}>
+              <div key={plan.id} className={`flex flex-col border p-6 ${plan.id === "pro" ? "border-2 border-accent bg-surface-alt" : "border-ink bg-panel"}`}>
                 <p className="font-mono text-xs font-bold text-accent">{plan.name.toUpperCase()}</p>
                 <p className="mt-3 text-3xl font-extrabold">{plan.monthlyPriceLabel}</p>
                 <ul className="mt-5 space-y-2 text-xs text-muted">
@@ -127,6 +134,14 @@ export default async function LandingPage() {
                     <li key={f} className="flex items-center gap-2"><span className="font-bold text-accent">✓</span>{f}</li>
                   ))}
                 </ul>
+                <div className="mt-auto pt-6">
+                  <Link
+                    href="/signup"
+                    className={`flex items-center justify-center text-sm control-focus ${plan.id === "pro" ? "btn-primary" : "btn-outline"}`}
+                  >
+                    สมัครแล้วเลือก {plan.name}
+                  </Link>
+                </div>
               </div>
             ))}
           </div>
