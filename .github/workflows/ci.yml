@@ -31,15 +31,35 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_placeholder
 
-  # Catches a secret being added from here on. It deliberately does not scan the
-  # full history: the pre-2026-09 history still contains keys that were rotated
-  # after the fact, and scanning it would fail every run until that is rewritten.
+  # Scans only the commits a pull request adds. It deliberately skips the older
+  # history, which still contains keys that were rotated after the fact and would
+  # fail every run until that history is rewritten.
+  #
+  # Runs the gitleaks binary rather than gitleaks-action, which failed here
+  # without producing a readable reason on a repo whose logs need auth to fetch.
   secret-scan:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - uses: gitleaks/gitleaks-action@v2
+      - name: Install gitleaks
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITLEAKS_CONFIG: .gitleaks.toml
+          VERSION: 8.30.1
+        run: |
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz" \
+            | sudo tar -xz -C /usr/local/bin gitleaks
+          gitleaks version
+
+      - name: Scan commits added by this pull request
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          gitleaks git \
+            --log-opts="${BASE_SHA}..${HEAD_SHA}" \
+            --config=.gitleaks.toml \
+            --redact \
+            --no-banner
