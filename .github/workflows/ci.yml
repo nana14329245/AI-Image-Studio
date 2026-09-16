@@ -39,6 +39,44 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_placeholder
 
+  # Browser tests of what a signed-out visitor can reach, against a production
+  # build. The Supabase URL points at a closed local port: these pages must work
+  # without a session, and nothing here should need a real backend. The PostHog
+  # key is a dummy aimed at an unreachable host, so the consent banner is tested
+  # without sending anything anywhere. Signed-in tests need a test account and run
+  # locally only (see README).
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_e2e_placeholder
+      NEXT_PUBLIC_POSTHOG_KEY: phc_e2e_placeholder
+      NEXT_PUBLIC_POSTHOG_HOST: http://127.0.0.1:9
+      E2E_EXPECT_ANALYTICS: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - run: npx playwright install --with-deps chromium
+
+      - run: npm run build
+
+      - run: npx playwright test --project=public --project=public-mobile
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
   # Scans only the commits a pull request adds. It deliberately skips the older
   # history, which still contains keys that were rotated after the fact and would
   # fail every run until that history is rewritten.
