@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import { GenerationProgress, useGenerationProgress } from "@/components/GenerationProgress";
 import { TOOL_CREDIT_COST } from "@/lib/plans";
+import CompareToggle from "@/components/CompareToggle";
 
 type Source = { url: string; name: string; width: number; height: number };
 const focus = "focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40";
@@ -52,7 +53,7 @@ export default function UpscalePage() {
         </div>
         </div>
         <div className="flex min-w-0 flex-col p-6">
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-4"><h2 className="micro">03 / PREVIEW</h2><div className="flex border border-line p-1">{(["original","result"] as const).map(tab=><button key={tab} disabled={tab==="result"&&!result} onClick={()=>setView(tab)} className={`px-4 py-2 text-sm ${view===tab?"bg-ink text-white":"hover:bg-white"} ${focus}`}>{tab==="original"?"ต้นฉบับ":"ผลลัพธ์"}</button>)}</div></div>
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-4"><h2 className="micro">03 / PREVIEW</h2><CompareToggle view={view} onChange={setView} resultReady={!!result} /></div>
           <div className="preview-card grid-paper flex flex-1 items-center justify-center p-5" aria-busy={busy}>{source?<img src={view==="result"&&result?result:source.url} alt={view==="result"?"ภาพหลังขยายด้วย AI":"ภาพต้นฉบับ"} className={`max-h-[520px] max-w-full object-contain ${busy?"opacity-40":""}`} onError={()=>setError("แสดงภาพไม่ได้ กรุณาตรวจสอบลิงก์หรือเลือกภาพใหม่")}/>:<div className="py-10 text-center"><div className="mx-auto mb-8 flex size-28 items-center justify-center border border-muted-soft bg-paper text-6xl font-light text-muted-soft">＋</div><p className="text-xl font-medium">A little bigger. A lot clearer.</p><p className="mt-3 text-sm text-muted-soft">เลือกภาพเพื่อเริ่มต้น</p></div>}{busy&&<div className="absolute inset-0 flex items-center justify-center bg-paper/60"><div className="border border-ink bg-paper px-6 py-5"><GenerationProgress progress={progress} message={message}/></div></div>}</div>
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3"><div className="min-w-0"><p className="max-w-[320px] truncate text-sm">{source?.name||"ยังไม่ได้เลือกภาพ"}</p><p className="mt-1 font-mono text-xs text-muted-soft">{source?`${source.width} × ${source.height} px${result?` → ${source.width*resultScale} × ${source.height*resultScale} px`:""}`:"READY WHEN YOU ARE"}</p></div><div className="flex items-center gap-4">{result&&<a href={result} target="_blank" rel="noopener noreferrer" className="text-sm underline">เปิดภาพ</a>}{generationId&&<a href={`/api/generations/${generationId}/download`} download={`upscaled-${resultScale}x`} className={`btn-outline flex items-center gap-3 ${focus}`}>ดาวน์โหลด<Arrow down/></a>}</div></div>
         </div>

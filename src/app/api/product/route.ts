@@ -7,11 +7,10 @@ import {
   isSupportedImageDataUrl,
   toFalImageInput,
 } from "@/lib/imageGeneration";
+import { PRODUCT_BACKGROUNDS, PRODUCT_STYLES, isAllowedOption } from "@/lib/toolOptions";
 
 export const maxDuration = 300;
 
-const STYLES = ["Clean", "Minimal", "Luxury", "Home / Lifestyle", "Natural", "Marketplace"] as const;
-const BACKGROUNDS = ["Studio", "Bathroom", "Living Room", "Nature", "Luxury", "Marketplace White"] as const;
 
 export async function POST(req: NextRequest) {
   const body = await req.text();
@@ -25,7 +24,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { imageUrl, style, background } = input;
-  if (!isSupportedImageDataUrl(imageUrl) || !STYLES.includes(style as (typeof STYLES)[number]) || !BACKGROUNDS.includes(background as (typeof BACKGROUNDS)[number])) {
+  if (!isSupportedImageDataUrl(imageUrl) || !isAllowedOption(PRODUCT_STYLES, style) || !isAllowedOption(PRODUCT_BACKGROUNDS, background)) {
     return NextResponse.json({ error: "กรุณาเลือกรูปสินค้า สไตล์ และพื้นหลังที่รองรับ" }, { status: 400 });
   }
 

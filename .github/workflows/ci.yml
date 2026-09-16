@@ -1,9 +1,17 @@
 name: CI
 
+# verify runs on every push, not just main: a feature branch between pull requests
+# would otherwise sit entirely unverified, which is exactly what happened after
+# PR #6 merged and three more commits landed on the branch with no CI at all.
 on:
   push:
-    branches: [main]
   pull_request:
+
+# A push to a branch that also has an open pull request triggers both events;
+# superseding runs on the same ref are cancelled rather than queued.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
 
 jobs:
   verify:

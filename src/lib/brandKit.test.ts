@@ -1,5 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { brandColorPromptHint, isValidHexColor } from "./brandKit";
+import sharp from "sharp";
+import { brandColorPromptHint, isValidHexColor, logoHasTransparency } from "./brandKit";
+
+async function makeLogo(options: { alpha: number; format: "png" | "jpeg" | "webp" }) {
+  const image = sharp({
+    create: {
+      width: 32,
+      height: 32,
+      channels: 4,
+      background: { r: 255, g: 87, b: 51, alpha: options.alpha },
+    },
+  });
+  const buffer = await (options.format === "png"
+    ? image.png()
+    : options.format === "webp"
+      ? image.webp()
+      : image.jpeg()
+  ).toBuffer();
+  return new Blob([new Uint8Array(buffer)], { type: `image/${options.format}` });
+}
 
 describe("isValidHexColor", () => {
   it("accepts a full six-digit hex colour in either case", () => {
@@ -25,6 +44,26 @@ describe("isValidHexColor", () => {
     expect(isValidHexColor(null)).toBe(false);
     expect(isValidHexColor(undefined)).toBe(false);
     expect(isValidHexColor(0xff5733)).toBe(false);
+  });
+});
+
+describe("logoHasTransparency", () => {
+  it("accepts a PNG with transparent pixels", async () => {
+    await expect(logoHasTransparency(await makeLogo({ alpha: 0, format: "png" }))).resolves.toBe(true);
+  });
+
+  it("accepts a transparent WebP", async () => {
+    await expect(logoHasTransparency(await makeLogo({ alpha: 0, format: "webp" }))).resolves.toBe(true);
+  });
+
+  it("rejects a JPEG, which cannot carry transparency at all", async () => {
+    await expect(logoHasTransparency(await makeLogo({ alpha: 1, format: "jpeg" }))).resolves.toBe(false);
+  });
+
+  it("rejects a PNG that has an alpha channel but is fully opaque", async () => {
+    // The case the file-type check alone would miss: a logo exported onto a solid
+    // background is still a rectangle once composited.
+    await expect(logoHasTransparency(await makeLogo({ alpha: 1, format: "png" }))).resolves.toBe(false);
   });
 });
 

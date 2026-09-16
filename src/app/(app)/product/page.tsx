@@ -4,9 +4,9 @@ import { useRef, useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import { GenerationProgress, useGenerationProgress } from "@/components/GenerationProgress";
 import { TOOL_CREDIT_COST } from "@/lib/plans";
+import { PRODUCT_BACKGROUNDS, PRODUCT_STYLES } from "@/lib/toolOptions";
+import CompareToggle, { type CompareView } from "@/components/CompareToggle";
 
-const styles = ["Clean", "Minimal", "Luxury", "Home / Lifestyle", "Natural", "Marketplace"];
-const backgrounds = ["Studio", "Bathroom", "Living Room", "Nature", "Luxury", "Marketplace White"];
 const MAX_FILE_SIZE = 4 * 1024 * 1024;
 const supportedTypes = ["image/jpeg", "image/png", "image/webp"];
 
@@ -36,6 +36,7 @@ export default function ProductPage() {
   const [generationId, setGenerationId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [view, setView] = useState<CompareView>("original");
   const { progress, message, track } = useGenerationProgress();
   const input = useRef<HTMLInputElement>(null);
 
@@ -45,6 +46,7 @@ export default function ProductPage() {
     setResults([]);
     setSelectedIndex(0);
     setGenerationId(null);
+    setView("original");
     if (!file) return;
     if (!supportedTypes.includes(file.type)) return setError("กรุณาเลือกไฟล์ JPG, PNG หรือ WebP");
     if (file.size > MAX_FILE_SIZE) return setError("ไฟล์ต้องมีขนาดไม่เกิน 4 MB");
@@ -64,6 +66,7 @@ export default function ProductPage() {
     setResults([]);
     setSelectedIndex(0);
     setGenerationId(null);
+    setView("original");
     try {
       const response = await fetch("/api/product", {
         method: "POST",
@@ -80,6 +83,7 @@ export default function ProductPage() {
       setResult(outputList[0] || completed.result);
       setSelectedIndex(0);
       setGenerationId(completed.generationId);
+      setView("result");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "สร้างภาพสินค้าไม่สำเร็จ");
     } finally {
@@ -88,6 +92,9 @@ export default function ProductPage() {
   }
 
   const activeImage = results[selectedIndex] || result;
+  const previewImage = view === "result" ? activeImage : imageUrl;
+  const styleLabel = PRODUCT_STYLES.find(o => o.value === style)?.label ?? style;
+  const bgLabel = PRODUCT_BACKGROUNDS.find(o => o.value === bg)?.label ?? bg;
 
   return (
     <>
@@ -126,7 +133,7 @@ export default function ProductPage() {
             >
               <span>
                 <span className="mb-4 block text-4xl">＋</span>
-                <span className="block">{imageUrl ? "เปลี่ยนรูปสินค้า" : "Upload Product"}</span>
+                <span className="block">{imageUrl ? "เปลี่ยนรูปสินค้า" : "อัปโหลดรูปสินค้า"}</span>
                 <span className="mt-2 block text-xs text-muted">รูปเดียวสร้างได้ครบ 4 มุมมอง · สูงสุด 4 MB</span>
               </span>
             </button>
@@ -135,7 +142,7 @@ export default function ProductPage() {
               <div className="mt-4 flex items-center gap-3 border border-line-soft p-3">
                 <img src={imageUrl} className="size-14 object-cover" alt="Selected product" />
                 <div>
-                  <p className="text-sm">Product image ready</p>
+                  <p className="text-sm">พร้อมสร้างภาพแล้ว</p>
                   <p className="micro mt-1 text-muted">4 ANGLES GENERATION → SHARP → COLOR BOOST</p>
                 </div>
               </div>
@@ -144,18 +151,19 @@ export default function ProductPage() {
             <div className="mt-8 border-t border-line-soft pt-6">
               <div className="mb-4 flex justify-between">
                 <span className="micro">02 / STYLE</span>
-                <span className="text-xs text-muted">SELECT ONE</span>
+                <span className="text-xs text-muted">เลือก 1 แบบ</span>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                {styles.map(item => (
+                {PRODUCT_STYLES.map(option => (
                   <button
                     type="button"
-                    key={item}
+                    key={option.value}
                     disabled={loading}
-                    onClick={() => setStyle(item)}
-                    className={`option ${style === item ? "selected" : ""}`}
+                    aria-pressed={style === option.value}
+                    onClick={() => setStyle(option.value)}
+                    className={`option ${style === option.value ? "selected" : ""}`}
                   >
-                    {item}
+                    {option.label}
                   </button>
                 ))}
               </div>
@@ -166,15 +174,16 @@ export default function ProductPage() {
                 <span className="micro">03 / BACKGROUND</span>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                {backgrounds.map(item => (
+                {PRODUCT_BACKGROUNDS.map(option => (
                   <button
                     type="button"
-                    key={item}
+                    key={option.value}
                     disabled={loading}
-                    onClick={() => setBg(item)}
-                    className={`option ${bg === item ? "selected" : ""}`}
+                    aria-pressed={bg === option.value}
+                    onClick={() => setBg(option.value)}
+                    className={`option ${bg === option.value ? "selected" : ""}`}
                   >
-                    {item}
+                    {option.label}
                   </button>
                 ))}
               </div>
@@ -193,33 +202,38 @@ export default function ProductPage() {
 
           {/* Right Column: Dynamic Preview & 4-Angle Selector */}
           <div className="flex flex-col p-6">
-            <div className="mb-5 flex justify-between items-center">
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
               <span className="micro">04 / COMPOSITION PREVIEW</span>
-              <span className="micro text-muted">
-                {results.length > 0 ? `ANGLE ${selectedIndex + 1} OF ${results.length}` : `${style} / ${bg}`}
-              </span>
+              {imageUrl ? (
+                <CompareToggle view={view} onChange={setView} resultReady={!!activeImage} />
+              ) : (
+                <span className="micro text-muted">{styleLabel + " / " + bgLabel}</span>
+              )}
             </div>
 
             {/* Main Stage Preview */}
             <div className="preview-card grid-paper relative flex min-h-[460px] flex-1 items-center justify-center p-6">
-              {activeImage ? (
+              {previewImage ? (
                 <div className="flex flex-col items-center justify-center">
                   <div className="relative max-w-sm">
                     <img
-                      src={activeImage}
-                      alt={`Generated product preview - ${ANGLE_PRESETS[selectedIndex]?.label || "Angle"}`}
+                      src={previewImage}
+                      alt={view === "result" ? `ภาพที่สร้าง — ${ANGLE_PRESETS[selectedIndex]?.label || "มุมมอง"}` : "ภาพต้นฉบับที่อัปโหลด"}
                       className="max-h-[420px] w-full object-contain drop-shadow-2xl"
                     />
+                    {view === "original" && (
+                      <span className="absolute left-2 top-2 border border-ink bg-paper px-2 py-1 micro">ต้นฉบับ</span>
+                    )}
                   </div>
 
-                  <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                  {view === "result" && activeImage && <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
                     <a
                       href={activeImage}
                       target="_blank"
                       rel="noreferrer"
                       className="border border-ink bg-paper px-3 py-2 font-mono text-[11px] uppercase tracking-wider hover:bg-surface-hover"
                     >
-                      Open full image ↗
+                      เปิดภาพเต็ม ↗
                     </a>
                     {generationId && (
                       <a
@@ -227,17 +241,17 @@ export default function ProductPage() {
                         download={`product-angle-${selectedIndex + 1}.png`}
                         className="btn-primary px-3 py-2 font-mono text-[11px] uppercase tracking-wider"
                       >
-                        Download this angle ↓
+                        ดาวน์โหลดมุมนี้ ↓
                       </a>
                     )}
-                  </div>
+                  </div>}
                 </div>
               ) : loading ? (
                 <GenerationProgress progress={progress} message={message} />
               ) : (
                 <div className="max-w-xs text-center">
                   <div className="mb-6 text-6xl font-light">□</div>
-                  <p className="text-lg font-medium">4 commercial angles, ready to sell.</p>
+                  <p className="text-lg font-medium">ได้ภาพครบ 4 มุม พร้อมลงขาย</p>
                   <p className="mt-3 text-sm leading-6 text-muted">
                     อัปโหลดรูปสินค้าแล้ว AI จะสร้างรูปใน 4 มุมมองที่แตกต่างกันเพื่อให้คุณเลือกใช้ได้ทันที
                   </p>

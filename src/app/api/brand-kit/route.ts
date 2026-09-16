@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isSupportedImageDataUrl } from "@/lib/imageGeneration";
-import { getBrandKit, isValidHexColor } from "@/lib/brandKit";
+import { getBrandKit, isValidHexColor, logoHasTransparency } from "@/lib/brandKit";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 
 export async function GET() {
@@ -63,13 +63,37 @@ export async function POST(req: NextRequest) {
 
   if (typeof input.logo === "string") {
     if (!isSupportedImageDataUrl(input.logo)) {
-      return NextResponse.json({ error: "รูปแบบไฟล์โลโก้ไม่ถูกต้อง กรุณาใช้ไฟล์ JPG, PNG หรือ WebP" }, { status: 400 });
+      return NextResponse.json({ error: "รูปแบบไฟล์โลโก้ไม่ถูกต้อง กรุณาใช้ไฟล์ PNG หรือ WebP ที่พื้นหลังโปร่งใส" }, { status: 400 });
+    }
+
+    let image: Blob;
+    try {
+      const response = await fetch(input.logo);
+      image = await response.blob();
+    } catch (error) {
+      console.error("Brand kit logo read failed", error);
+      return NextResponse.json({ error: "อ่านไฟล์โลโก้ไม่สำเร็จ กรุณาลองใหม่" }, { status: 400 });
+    }
+
+    let transparent: boolean;
+    try {
+      transparent = await logoHasTransparency(image);
+    } catch (error) {
+      console.error("Brand kit logo inspection failed", error);
+      return NextResponse.json({ error: "อ่านไฟล์โลโก้ไม่สำเร็จ กรุณาใช้ไฟล์ PNG อีกครั้ง" }, { status: 400 });
+    }
+    if (!transparent) {
+      return NextResponse.json(
+        {
+          error:
+            "โลโก้นี้ไม่มีพื้นหลังโปร่งใส ระบบจะประทับเป็นกรอบสี่เหลี่ยมทึบทับภาพสินค้า กรุณาใช้ไฟล์ PNG ที่ลบพื้นหลังออกแล้ว",
+        },
+        { status: 400 }
+      );
     }
 
     try {
-      const response = await fetch(input.logo);
-      const image = await response.blob();
-      const extension = image.type === "image/jpeg" ? "jpg" : image.type === "image/webp" ? "webp" : "png";
+      const extension = image.type === "image/webp" ? "webp" : "png";
       const path = `${user.id}/brand-kit/logo.${extension}`;
 
       const { error: uploadError } = await createServiceRoleClient()

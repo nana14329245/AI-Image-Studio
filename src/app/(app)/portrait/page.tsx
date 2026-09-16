@@ -4,10 +4,9 @@ import { useRef, useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import { GenerationProgress, useGenerationProgress } from "@/components/GenerationProgress";
 import { TOOL_CREDIT_COST } from "@/lib/plans";
+import { PORTRAIT_BACKGROUNDS, PORTRAIT_CAREERS, PORTRAIT_SIZES } from "@/lib/toolOptions";
+import CompareToggle, { type CompareView } from "@/components/CompareToggle";
 
-const careers = ["Office", "IT", "Banking", "Hotel", "Sales", "Student"];
-const backgrounds = ["White", "Gray", "Blue", "Office"];
-const sizes = ["Resume", "1 × 1", "Passport"];
 const acceptedTypes = ["image/jpeg", "image/png", "image/webp"];
 const maxFileSize = 4 * 1024 * 1024;
 
@@ -17,8 +16,8 @@ function readAsDataUri(file: File) {
     reader.onload = () =>
       typeof reader.result === "string"
         ? resolve(reader.result)
-        : reject(new Error("Could not read the selected image."));
-    reader.onerror = () => reject(new Error("Could not read the selected image."));
+        : reject(new Error("อ่านไฟล์ไม่สำเร็จ"));
+    reader.onerror = () => reject(new Error("อ่านไฟล์ไม่สำเร็จ"));
     reader.readAsDataURL(file);
   });
 }
@@ -33,6 +32,7 @@ export default function PortraitPage() {
   const [creditsRemaining, setCreditsRemaining] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [view, setView] = useState<CompareView>("original");
   const { progress, message, track } = useGenerationProgress();
   const input = useRef<HTMLInputElement>(null);
 
@@ -41,16 +41,17 @@ export default function PortraitPage() {
     setResult(null);
     setGenerationId(null);
     setCreditsRemaining(null);
+    setView("original");
 
     if (!selectedFile) return;
     if (!acceptedTypes.includes(selectedFile.type)) {
       setImageUrl(null);
-      setError("Please select a JPG, PNG, or WebP image.");
+      setError("กรุณาเลือกไฟล์ JPG, PNG หรือ WebP");
       return;
     }
     if (selectedFile.size > maxFileSize) {
       setImageUrl(null);
-      setError("Image must be 4MB or smaller.");
+      setError("ไฟล์ต้องมีขนาดไม่เกิน 4 MB");
       return;
     }
 
@@ -58,7 +59,7 @@ export default function PortraitPage() {
       setImageUrl(await readAsDataUri(selectedFile));
     } catch (readError) {
       setImageUrl(null);
-      setError(readError instanceof Error ? readError.message : "Could not read the selected image.");
+      setError(readError instanceof Error ? readError.message : "อ่านไฟล์ไม่สำเร็จ");
     }
   };
 
@@ -70,6 +71,7 @@ export default function PortraitPage() {
     setResult(null);
     setGenerationId(null);
     setCreditsRemaining(null);
+    setView("original");
 
     try {
       const response = await fetch("/api/portrait", {
@@ -83,23 +85,28 @@ export default function PortraitPage() {
       };
 
       if (!response.ok || !data.generationId) {
-        throw new Error(data.error || "Could not create your professional portrait.");
+        throw new Error(data.error || "สร้างภาพโปรไฟล์ไม่สำเร็จ");
       }
 
       const completed = await track(data.generationId);
       setResult(completed.result);
       setGenerationId(completed.generationId);
       setCreditsRemaining(completed.creditsRemaining ?? null);
+      setView("result");
     } catch (requestError) {
       setError(
         requestError instanceof Error
           ? requestError.message
-          : "Could not create your professional portrait.",
+          : "สร้างภาพโปรไฟล์ไม่สำเร็จ",
       );
     } finally {
       setIsGenerating(false);
     }
   };
+
+  const previewImage = view === "result" ? result : imageUrl;
+  const careerLabel = PORTRAIT_CAREERS.find(o => o.value === career)?.label ?? career;
+  const backgroundLabel = PORTRAIT_BACKGROUNDS.find(o => o.value === background)?.label ?? background;
 
   return (
     <>
@@ -129,55 +136,61 @@ export default function PortraitPage() {
             <button type="button" onClick={() => input.current?.click()} className="dropzone w-full min-h-64">
               <span>
                 <span className="mb-4 block text-5xl">◎</span>
-                <span className="block">{imageUrl ? "เปลี่ยนรูปโปรไฟล์" : "Upload your photo"}</span>
-                <span className="mt-2 block text-xs text-muted">JPG, PNG, or WebP · max 4MB</span>
+                <span className="block">{imageUrl ? "เปลี่ยนรูปโปรไฟล์" : "อัปโหลดรูปของคุณ"}</span>
+                <span className="mt-2 block text-xs text-muted">JPG, PNG หรือ WebP · สูงสุด 4 MB</span>
               </span>
             </button>
             {error && <p role="alert" className="mt-3 text-sm text-red-600">{error}</p>}
             <div className="mt-8 grid gap-8 md:grid-cols-3">
               <div>
                 <p className="micro mb-3">02 / CAREER</p>
-                <div className="grid gap-2">{careers.map((option) => <button type="button" key={option} onClick={() => setCareer(option)} className={`option ${career === option ? "selected" : ""}`}>{option}</button>)}</div>
+                <div className="grid gap-2">{PORTRAIT_CAREERS.map((option) => <button type="button" key={option.value} aria-pressed={career === option.value} onClick={() => setCareer(option.value)} className={`option ${career === option.value ? "selected" : ""}`}>{option.label}</button>)}</div>
               </div>
               <div>
                 <p className="micro mb-3">03 / BACKGROUND</p>
-                <div className="grid gap-2">{backgrounds.map((option) => <button type="button" key={option} onClick={() => setBackground(option)} className={`option ${background === option ? "selected" : ""}`}>{option}</button>)}</div>
+                <div className="grid gap-2">{PORTRAIT_BACKGROUNDS.map((option) => <button type="button" key={option.value} aria-pressed={background === option.value} onClick={() => setBackground(option.value)} className={`option ${background === option.value ? "selected" : ""}`}>{option.label}</button>)}</div>
               </div>
               <div>
                 <p className="micro mb-3">04 / SIZE</p>
-                <div className="grid gap-2">{sizes.map((option) => <button type="button" key={option} onClick={() => setSize(option)} className={`option ${size === option ? "selected" : ""}`}>{option}</button>)}</div>
+                <div className="grid gap-2">{PORTRAIT_SIZES.map((option) => <button type="button" key={option.value} aria-pressed={size === option.value} onClick={() => setSize(option.value)} className={`option ${size === option.value ? "selected" : ""}`}>{option.label}</button>)}</div>
               </div>
             </div>
             <button type="button" disabled={!imageUrl || isGenerating} onClick={() => void generatePortrait()} className="btn-primary mt-8 w-full disabled:cursor-not-allowed disabled:opacity-50">
               {isGenerating ? `กำลังสร้างภาพ ${progress}%` : "สร้างภาพโปรไฟล์  ↗"}
             </button>
             <p className="mt-3 text-center font-mono text-xs text-muted">ใช้ {TOOL_CREDIT_COST.portrait} เครดิตต่อครั้ง</p>
-            {creditsRemaining !== null && <p className="mt-3 text-center font-mono text-xs text-muted">CREDITS REMAINING: {creditsRemaining}</p>}
+            {creditsRemaining !== null && <p className="mt-3 text-center font-mono text-xs text-muted">เครดิตคงเหลือ {creditsRemaining}</p>}
           </div>
           <div className="p-6">
-            <div className="mb-5 flex justify-between">
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
               <span className="micro">05 / RESULT</span>
-              <span className="font-mono text-xs">{career} / {background} / {size}</span>
+              {imageUrl ? (
+                <CompareToggle view={view} onChange={setView} resultReady={!!result} />
+              ) : (
+                <span className="font-mono text-xs">{careerLabel} / {backgroundLabel}</span>
+              )}
             </div>
             <div className="preview-card flex min-h-[560px] items-center justify-center p-8 bg-surface-alt">
-              {result ? (
+              {previewImage ? (
                 <div className="w-full">
-                  <div className="relative mx-auto flex max-h-[500px] max-w-[350px] items-center justify-center overflow-hidden bg-white">
-                    <img src={result} alt="Generated professional portrait" className="max-h-[500px] max-w-full object-contain" />
-                    <span className="absolute bottom-3 left-3 border border-ink bg-paper px-3 py-2 micro">{background} / {career}</span>
+                  <div className="relative mx-auto flex max-h-[500px] max-w-[350px] items-center justify-center overflow-hidden bg-surface-alt">
+                    <img src={previewImage} alt={view === "result" ? "ภาพโปรไฟล์ที่สร้างขึ้น" : "ภาพต้นฉบับที่อัปโหลด"} className="max-h-[500px] max-w-full object-contain" />
+                    <span className="absolute bottom-3 left-3 border border-ink bg-paper px-3 py-2 micro">{view === "result" ? `${backgroundLabel} / ${careerLabel}` : "ต้นฉบับ"}</span>
                   </div>
-                  <div className="mx-auto mt-5 flex max-w-[350px] gap-3">
-                    <a href={result} target="_blank" rel="noopener noreferrer" className="option flex-1 text-center">OPEN ↗</a>
-                    {generationId && <a href={`/api/generations/${generationId}/download`} download="professional-portrait" className="option flex-1 text-center">DOWNLOAD ↓</a>}
-                  </div>
+                  {view === "result" && result && (
+                    <div className="mx-auto mt-5 flex max-w-[350px] gap-3">
+                      <a href={result} target="_blank" rel="noopener noreferrer" className="option flex-1 text-center">เปิดภาพ ↗</a>
+                      {generationId && <a href={`/api/generations/${generationId}/download`} download="professional-portrait" className="option flex-1 text-center">ดาวน์โหลด ↓</a>}
+                    </div>
+                  )}
                 </div>
               ) : isGenerating ? (
                 <GenerationProgress progress={progress} message={message} />
               ) : (
                 <div className="text-center">
                   <div className="mx-auto mb-6 flex size-32 items-center justify-center border border-muted-soft bg-paper text-6xl font-light">◎</div>
-                  <p className="text-lg font-medium">Professional, not artificial.</p>
-                  <p className="mt-3 text-sm leading-6 text-muted">Upload a clear photo, choose your preferences, and create your AI portrait.</p>
+                  <p className="text-lg font-medium">ดูเป็นมืออาชีพ แต่ยังเป็นคุณ</p>
+                  <p className="mt-3 text-sm leading-6 text-muted">อัปโหลดรูปที่เห็นหน้าชัด เลือกประเภทงานและพื้นหลัง แล้วให้ AI จัดภาพให้</p>
                 </div>
               )}
             </div>
