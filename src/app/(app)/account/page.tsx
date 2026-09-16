@@ -13,7 +13,7 @@ export default async function AccountPage() {
   const { data: profile } = await supabase
     .from("profiles")
     .select(
-      "id, email, display_name, credits, plan, subscription_status, current_period_end, stripe_customer_id"
+      "id, email, display_name, credits, plan, subscription_status, current_period_end, cancel_at_period_end, stripe_customer_id"
     )
     .eq("id", user.id)
     .single();
@@ -33,6 +33,7 @@ export default async function AccountPage() {
     plan: (profile?.plan as "free" | "pro" | "business") ?? "free",
     subscription_status: profile?.subscription_status ?? "none",
     current_period_end: profile?.current_period_end ?? null,
+    cancel_at_period_end: profile?.cancel_at_period_end ?? false,
     stripe_customer_id: profile?.stripe_customer_id ?? null,
   };
 

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { type PlanId } from "@/lib/plans";
+import { grantsPaidPlan, toSubscriptionStatus } from "@/lib/subscriptions";
 import PromotionsClient from "./PromotionsClient";
 
 export default async function PromotionsPage() {
@@ -15,12 +16,12 @@ export default async function PromotionsPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("plan, credits")
+    .select("plan, subscription_status")
     .eq("id", user.id)
     .single();
 
   const currentPlan = (profile?.plan as PlanId) || "free";
-  const currentCredits = profile?.credits ?? 0;
+  const subscribed = currentPlan !== "free" && grantsPaidPlan(toSubscriptionStatus(profile?.subscription_status));
 
-  return <PromotionsClient currentPlan={currentPlan} currentCredits={currentCredits} />;
+  return <PromotionsClient currentPlan={currentPlan} subscribed={subscribed} />;
 }

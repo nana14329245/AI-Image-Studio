@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { track } from "@/lib/analytics";
 import { useRouter, useSearchParams } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import ThemeToggle from "@/components/ThemeToggle";
 import { createClient } from "@/lib/supabase/client";
-import { PLANS, SIGNUP_CREDITS, type PlanId } from "@/lib/plans";
+import { PLANS, SIGNUP_CREDITS, planById, type PlanId } from "@/lib/plans";
+import { usePlanActions } from "@/components/usePlanActions";
+import { grantsPaidPlan, subscriptionStatusLabel, toSubscriptionStatus } from "@/lib/subscriptions";
 
 type ProfileData = {
   id: string;
@@ -16,6 +17,7 @@ type ProfileData = {
   plan: PlanId;
   subscription_status: string;
   current_period_end: string | null;
+  cancel_at_period_end: boolean;
   stripe_customer_id: string | null;
 };
 
@@ -48,6 +50,7 @@ function formatDate(isoString: string | null | undefined) {
 }
 
 function toolLabel(tool: string | null, reason: string) {
+  if (reason === "generation_refund") return "คืนเครดิต (สร้างภาพไม่สำเร็จ)";
   if (tool === "upscale") return "4K Upscale";
   if (tool === "product") return "Product Studio";
   if (tool === "ads") return "Ad Studio";
@@ -70,10 +73,16 @@ export default function AccountClient({
   const [displayName, setDisplayName] = useState(initialProfile.display_name || "");
   const [isSavingName, setIsSavingName] = useState(false);
   const [nameSuccess, setNameSuccess] = useState(false);
-  const [billingLoading, setBillingLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  const planActions = usePlanActions();
+  const status = toSubscriptionStatus(profile.subscription_status);
+  // A customer with a live subscription switches plan; only one without starts a checkout.
+  const subscribed = profile.plan !== "free" && grantsPaidPlan(status);
+  const paymentProblem = status === "past_due" || status === "unpaid";
+  const shownError = error ?? planActions.error;
 
   const isSuccess = searchParams.get("checkout") === "success";
   const isCanceled = searchParams.get("checkout") === "cancel";
@@ -98,45 +107,6 @@ export default function AccountClient({
       setError(err instanceof Error ? err.message : "บันทึกชื่อไม่สำเร็จ");
     } finally {
       setIsSavingName(false);
-    }
-  }
-
-  async function handleCheckout(planId: "pro" | "business") {
-    track("checkout_started", { plan: planId });
-    setBillingLoading(planId);
-    setError(null);
-    try {
-      const res = await fetch("/api/billing/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: planId }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.url) {
-        throw new Error(data.error || "ไม่สามารถเริ่มขั้นตอนชำระเงินได้");
-      }
-      window.location.assign(data.url);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "เกิดข้อผิดพลาดในการเชื่อมต่อกับ Stripe");
-      setBillingLoading(null);
-    }
-  }
-
-  async function handleOpenPortal() {
-    setBillingLoading("portal");
-    setError(null);
-    try {
-      const res = await fetch("/api/billing/portal", {
-        method: "POST",
-      });
-      const data = await res.json();
-      if (!res.ok || !data.url) {
-        throw new Error(data.error || "ไม่สามารถเปิดหน้าจัดการแพ็กเกจได้");
-      }
-      window.location.assign(data.url);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "เกิดข้อผิดพลาดในการเปิด Stripe Portal");
-      setBillingLoading(null);
     }
   }
 
@@ -169,9 +139,36 @@ export default function AccountClient({
           </div>
         )}
 
-        {error && (
+        {paymentProblem && (
+          <div role="alert" className="mb-6 flex flex-wrap items-center justify-between gap-4 border-2 border-danger bg-danger-bg p-4">
+            <div>
+              <p className="text-sm font-semibold text-danger">ชำระค่าแพ็กเกจรอบล่าสุดไม่สำเร็จ</p>
+              <p className="mt-1 text-xs text-muted">
+                {status === "past_due"
+                  ? "ระบบกำลังลองตัดเงินใหม่ ยังใช้งานได้ตามปกติระหว่างนี้ กรุณาอัปเดตบัตรเพื่อไม่ให้แพ็กเกจถูกยกเลิก"
+                  : "แพ็กเกจถูกพักไว้เพราะค้างชำระ กรุณาอัปเดตบัตรเพื่อกลับมาใช้งาน"}
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={planActions.busy !== null}
+              onClick={planActions.openPortal}
+              className={`btn-primary px-4 text-xs ${focus}`}
+            >
+              {planActions.busy === "portal" ? "กำลังเปิด..." : "อัปเดตบัตร ↗"}
+            </button>
+          </div>
+        )}
+
+        {planActions.notice && (
+          <div role="status" className="mb-6 border border-ink bg-surface-alt p-4 text-sm text-success">
+            {planActions.notice}
+          </div>
+        )}
+
+        {shownError && (
           <div role="alert" className="mb-6 border border-danger bg-danger-bg p-4 text-sm text-danger">
-            {error}
+            {shownError}
           </div>
         )}
 
@@ -236,21 +233,26 @@ export default function AccountClient({
             <div>
               <div className="mb-6 flex items-center justify-between">
                 <p className="micro">02 / CURRENT PLAN</p>
-                <span className="micro uppercase font-bold text-accent">{profile.plan} PLAN</span>
+                <span className="micro uppercase font-bold text-accent">{planById(profile.plan).name} PLAN</span>
               </div>
 
               <div className="stat">
                 <p className="micro text-muted">AVAILABLE CREDITS</p>
                 <p className="mt-2 text-4xl font-extrabold tracking-tight font-mono">{profile.credits}</p>
                 <p className="mt-1 text-xs text-muted">
-                  {profile.plan === "free" ? `แพ็กเกจฟรี ${SIGNUP_CREDITS} เครดิตแรกเข้า` : `สถานะ: ${profile.subscription_status}`}
+                  {status === "none" ? `แพ็กเกจฟรี ${SIGNUP_CREDITS} เครดิตแรกเข้า` : `สถานะ: ${subscriptionStatusLabel(status)}`}
                 </p>
               </div>
 
               {profile.current_period_end && (
                 <div className="mt-4 border-t border-line-soft pt-3">
-                  <p className="micro text-muted">NEXT BILLING CYCLE</p>
+                  <p className="micro text-muted">{profile.cancel_at_period_end ? "SUBSCRIPTION ENDS" : "NEXT BILLING CYCLE"}</p>
                   <p className="mt-1 text-xs font-mono">{formatDate(profile.current_period_end)}</p>
+                  {profile.cancel_at_period_end && (
+                    <p className="mt-1 text-xs text-muted">
+                      ยกเลิกการต่ออายุแล้ว ใช้งานได้ถึงวันที่นี้ หลังจากนั้นจะกลับเป็นแพ็กฟรี เครดิตที่เหลือยังใช้ได้
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -259,11 +261,11 @@ export default function AccountClient({
               {profile.stripe_customer_id ? (
                 <button
                   type="button"
-                  disabled={billingLoading !== null}
-                  onClick={handleOpenPortal}
+                  disabled={planActions.busy !== null}
+                  onClick={planActions.openPortal}
                   className={`btn-outline w-full text-xs font-mono uppercase tracking-wider ${focus}`}
                 >
-                  {billingLoading === "portal" ? "กำลังเปิด..." : "จัดการการสมัครสมาชิก (Stripe Portal) ↗"}
+                  {planActions.busy === "portal" ? "กำลังเปิด..." : "ยกเลิก / เปลี่ยนบัตร / ดูใบเสร็จ ↗"}
                 </button>
               ) : (
                 <p className="text-center text-xs text-muted">เลือกแพ็กเกจด้านล่างเพื่อเพิ่มเครดิตและฟีเจอร์ระดับโปร</p>
@@ -335,12 +337,20 @@ export default function AccountClient({
                     ) : isPro || isBusiness ? (
                       <button
                         type="button"
-                        disabled={billingLoading !== null}
-                        onClick={() => handleCheckout(planItem.id as "pro" | "business")}
+                        disabled={planActions.busy !== null}
+                        onClick={() =>
+                          subscribed
+                            ? planActions.changePlan(planItem.id as "pro" | "business", profile.plan)
+                            : planActions.subscribe(planItem.id as "pro" | "business")
+                        }
                         className={`btn-primary w-full text-xs font-mono uppercase tracking-wider ${focus}`}
                       >
-                        {billingLoading === planItem.id ? "กำลังไปที่ STRIPE..." : `SUBSCRIBE ${planItem.name.toUpperCase()} ↗`}
+                        {planActions.busy === planItem.id
+                          ? subscribed ? "กำลังเปลี่ยนแพ็กเกจ..." : "กำลังไปที่ STRIPE..."
+                          : subscribed ? `เปลี่ยนเป็น ${planItem.name} ↗` : `SUBSCRIBE ${planItem.name.toUpperCase()} ↗`}
                       </button>
+                    ) : subscribed ? (
+                      <p className="text-center text-xs text-muted">กลับเป็นแพ็กฟรีได้ด้วยการยกเลิกที่ปุ่มจัดการด้านบน</p>
                     ) : (
                       <button
                         type="button"
@@ -356,6 +366,11 @@ export default function AccountClient({
             })}
           </div>
         </div>
+
+        <p className="mt-4 text-xs leading-5 text-muted">
+          แพ็กเกจรายเดือนต่ออายุอัตโนมัติจนกว่าจะยกเลิก ยกเลิกได้ทุกเมื่อ และใช้งานได้จนสิ้นรอบบิลที่ชำระไว้
+          เครดิตที่ไม่ได้ใช้ทบไปเดือนถัดไปได้ไม่เกิน 2 เท่าของเครดิตรายเดือนของแพ็ก
+        </p>
 
         {/* Credit Usage History (Ledger) */}
         <div className="mt-10 border-t border-ink pt-8">
