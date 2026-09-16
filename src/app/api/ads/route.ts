@@ -7,11 +7,10 @@ import {
   isSupportedImageDataUrl,
   toFalImageInput,
 } from "@/lib/imageGeneration";
+import { AD_FORMATS, AD_PLATFORMS, isAllowedOption } from "@/lib/toolOptions";
 
 export const maxDuration = 300;
 
-const PLATFORMS = ["Facebook", "Instagram", "Shopee", "Lazada", "TikTok"] as const;
-const FORMATS = ["1:1", "4:5", "16:9", "9:16"] as const;
 const ASPECT_RATIOS = { "1:1": "1:1", "4:5": "3:4", "16:9": "16:9", "9:16": "9:16" } as const;
 
 export async function POST(req: NextRequest) {
@@ -32,8 +31,8 @@ export async function POST(req: NextRequest) {
     productName.length > 120 ||
     typeof benefits !== "string" ||
     benefits.length > 500 ||
-    !PLATFORMS.includes(platform as (typeof PLATFORMS)[number]) ||
-    !FORMATS.includes(format as (typeof FORMATS)[number])
+    !isAllowedOption(AD_PLATFORMS, platform) ||
+    !isAllowedOption(AD_FORMATS, format)
   ) {
     return NextResponse.json({ error: "กรุณาเลือกรูปและกรอกข้อมูลโฆษณาให้ถูกต้อง" }, { status: 400 });
   }

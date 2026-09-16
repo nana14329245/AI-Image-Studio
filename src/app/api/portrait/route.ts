@@ -7,12 +7,10 @@ import {
   isSupportedImageDataUrl,
   toFalImageInput,
 } from "@/lib/imageGeneration";
+import { PORTRAIT_BACKGROUNDS, PORTRAIT_CAREERS, PORTRAIT_SIZES, isAllowedOption } from "@/lib/toolOptions";
 
 export const maxDuration = 300;
 
-const CAREERS = ["Office", "IT", "Banking", "Hotel", "Sales", "Student"] as const;
-const BACKGROUNDS = ["White", "Gray", "Blue", "Office"] as const;
-const SIZES = ["Resume", "1 × 1", "Passport"] as const;
 const ASPECT_RATIOS = { Resume: "3:4", "1 × 1": "1:1", Passport: "3:4" } as const;
 
 export async function POST(req: NextRequest) {
@@ -29,9 +27,9 @@ export async function POST(req: NextRequest) {
   const { imageUrl, career, background, size } = input;
   if (
     !isSupportedImageDataUrl(imageUrl) ||
-    !CAREERS.includes(career as (typeof CAREERS)[number]) ||
-    !BACKGROUNDS.includes(background as (typeof BACKGROUNDS)[number]) ||
-    !SIZES.includes(size as (typeof SIZES)[number])
+    !isAllowedOption(PORTRAIT_CAREERS, career) ||
+    !isAllowedOption(PORTRAIT_BACKGROUNDS, background) ||
+    !isAllowedOption(PORTRAIT_SIZES, size)
   ) {
     return NextResponse.json({ error: "กรุณาเลือกรูป ประเภทงาน พื้นหลัง และขนาดที่รองรับ" }, { status: 400 });
   }
