@@ -73,10 +73,10 @@ export async function enqueueGeneration(
   ) {
     try {
       const queued = await createFal().queue.submit(endpoint, { input });
-      const { error } = await context.supabase
-        .from("generations")
+      const { error } = await generationsTable()
         .update({ fal_endpoint: endpoint, fal_request_id: queued.request_id, generation_metadata: metadata })
         .eq("id", context.generationId)
+        .eq("user_id", context.userId)
         .eq("status", "processing");
       if (error) throw error;
       return { generationId: context.generationId, progress: 5, status: "queued" as const, queuePosition: queued.queue_position };
@@ -111,8 +111,7 @@ export async function enqueueMultipleGenerations(
   }
 
   const primaryRequestId = requestIds[0];
-  const { error } = await context.supabase
-    .from("generations")
+  const { error } = await generationsTable()
     .update({
       fal_endpoint: endpoint,
       fal_request_id: primaryRequestId,
@@ -124,6 +123,7 @@ export async function enqueueMultipleGenerations(
       },
     })
     .eq("id", context.generationId)
+    .eq("user_id", context.userId)
     .eq("status", "processing");
   if (error) {
     console.error("fal.ai multiple queue submission: failed to persist request ids", error);
@@ -174,10 +174,10 @@ export async function enqueueMultipleGenerations(
       if (Date.now() - startedAt < 90_000) {
         return NextResponse.json({ status: "saving", progress: 90, message: "กำลังบันทึกภาพผลลัพธ์" });
       }
-      const { error: retryError } = await supabase
-        .from("generations")
+      const { error: retryError } = await generationsTable()
         .update({ status: "processing", finalizing_started_at: null })
         .eq("id", generationId)
+        .eq("user_id", user.id)
         .eq("status", "finalizing");
       if (retryError) return NextResponse.json({ status: "saving", progress: 90, message: "กำลังบันทึกภาพผลลัพธ์" });
       return NextResponse.json({ status: "saving", progress: 90, message: "กำลังกู้คืนการบันทึกภาพ" });
@@ -217,10 +217,10 @@ export async function enqueueMultipleGenerations(
         });
       }
 
-      const { data: locked } = await supabase
-        .from("generations")
+      const { data: locked } = await generationsTable()
         .update({ status: "finalizing", finalizing_started_at: new Date().toISOString() })
         .eq("id", generationId)
+        .eq("user_id", user.id)
         .eq("status", "processing")
         .select("id")
         .maybeSingle();
@@ -306,8 +306,7 @@ export async function completeGeneration(
       results: stored.urls,
       output_paths: stored.paths,
     };
-    const { error: finalizeError } = await context.supabase
-      .from("generations")
+    const { error: finalizeError } = await generationsTable()
       .update({
         status: "completed",
         output_path: stored.paths[0],
@@ -315,7 +314,8 @@ export async function completeGeneration(
         credits_spent: cost,
         generation_metadata: updatedMetadata,
       })
-      .eq("id", context.generationId);
+      .eq("id", context.generationId)
+      .eq("user_id", context.userId);
     if (finalizeError) console.error("[completeGeneration] failed to mark completed", context.generationId, finalizeError);
     return { remaining, result: stored.urls[0], results: stored.urls, generationId: context.generationId };
   } catch (error) {
@@ -373,7 +373,21 @@ export async function persistGeneratedImage(userId: string, generationId: string
 }
 
 export async function failGeneration(context: GenerationContext, reason: string) {
-  await context.supabase.from("generations").update({ status: "failed", error: reason }).eq("id", context.generationId);
+  await generationsTable()
+    .update({ status: "failed", error: reason })
+    .eq("id", context.generationId)
+    .eq("user_id", context.userId);
+}
+
+/**
+ * Server-side writes to generation rows. Signed-in users may read, insert and
+ * delete their own rows but not update them: every column here — status, stored
+ * output paths, fal request ids — is state the server owns, and a user able to
+ * rewrite output_paths could point the delete route at another user's files.
+ * Callers must still scope each update by user_id.
+ */
+function generationsTable() {
+  return createServiceRoleClient().from("generations");
 }
 
 export function createFal() {
