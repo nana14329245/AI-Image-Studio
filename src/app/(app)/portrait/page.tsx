@@ -33,7 +33,7 @@ export default function PortraitPage() {
   const [error, setError] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [view, setView] = useState<CompareView>("original");
-  const { progress, message, track } = useGenerationProgress();
+  const { progress, message, track } = useGenerationProgress("portrait");
   const input = useRef<HTMLInputElement>(null);
 
   const selectFile = async (selectedFile?: File) => {

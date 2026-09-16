@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { track } from "@/lib/analytics";
 import { useRouter, useSearchParams } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -101,6 +102,7 @@ export default function AccountClient({
   }
 
   async function handleCheckout(planId: "pro" | "business") {
+    track("checkout_started", { plan: planId });
     setBillingLoading(planId);
     setError(null);
     try {

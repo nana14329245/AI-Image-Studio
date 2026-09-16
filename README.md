@@ -64,6 +64,8 @@ Fill in `.env.local`:
 | `FAL_KEY` | image generation |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | billing |
 | `STRIPE_PRICE_PRO`, `STRIPE_PRICE_BUSINESS` | billing |
+| `NEXT_PUBLIC_SITE_URL` | link previews, sitemap, robots.txt (crawling is blocked until set) |
+| `NEXT_PUBLIC_POSTHOG_KEY`, `NEXT_PUBLIC_POSTHOG_HOST` | optional analytics — off when empty |
 
 Without a valid Supabase URL and key the app redirects to `/setup` and the API returns 503 rather than silently skipping auth.
 
@@ -91,18 +93,18 @@ npm test            # vitest
 npm run build       # production build
 ```
 
-CI runs all four on every pull request, plus a secret scan on new commits.
+CI runs all four on every push, plus a secret scan on the commits each pull request adds.
 
-Tests cover the logic where a mistake costs money or leaks something: Stripe price → plan mapping, upload data-URL validation, provider response parsing, client-IP extraction for rate limiting, and the config guard that keeps secret keys out of the client bundle.
+Tests cover the logic where a mistake costs money or leaks something: Stripe price → plan mapping, upload data-URL validation, the allowlist that keeps free text out of generation prompts, brand-logo transparency, provider response parsing, client-IP extraction for rate limiting, and the config guard that keeps secret keys out of the client bundle.
 
 ## Status
 
-Working: auth, credits, billing, all four tools, gallery, brand kit, dark mode.
+Working: auth, password reset, credits, billing, all four tools with before/after comparison, gallery, brand kit, mobile navigation, dark mode.
 
 Known gaps, roughly in priority order:
 
-- No mobile navigation — the sidebar is hidden below 900px with nothing replacing it, so Account, Promotions and Brand Kit are unreachable on a phone
+- Ad Studio interpolates the product name and selling points into the prompt verbatim, checked only for length
+- Uploaded originals are not persisted (`generations.input_path` is never written), so before/after does not survive a reload and the gallery shows outputs only
+- The landing page showcase shows outputs only, with no before/after pairs
 - Marketplace-spec export (Shopee / Lazada / TikTok Shop dimensions)
 - Batch upload
-- Tool UI is inconsistently localised — Upscale is fully Thai, Product and Ad Studio are not
-- Brand Kit accepts JPG logos, which composite as an opaque rectangle; it should require a transparent PNG

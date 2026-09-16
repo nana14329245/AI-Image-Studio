@@ -24,6 +24,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <StudioShell
+      userId={user.id}
       email={profile?.email ?? user.email ?? ""}
       displayName={profile?.display_name ?? null}
       credits={profile?.credits ?? 0}

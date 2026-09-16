@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import ThemeToggle from "@/components/ThemeToggle";
+import { identify, resetAnalytics } from "@/lib/analytics";
 import { createClient } from "@/lib/supabase/client";
 
 const items = [
@@ -54,6 +55,7 @@ function CreditMeter({ credits, creditsCap }: { credits: number; creditsCap: num
 
 export default function StudioShell({
   children,
+  userId,
   email,
   displayName,
   credits,
@@ -61,6 +63,7 @@ export default function StudioShell({
   planName,
 }: {
   children: ReactNode;
+  userId: string;
   email: string;
   displayName: string | null;
   credits: number;
@@ -105,10 +108,14 @@ export default function StudioShell({
     };
   }, [menuOpen]);
 
+  // Only the opaque Supabase id is sent — never the email address.
+  useEffect(() => { identify(userId); }, [userId]);
+
   async function handleSignOut() {
     setSigningOut(true);
     const supabase = createClient();
     await supabase.auth.signOut();
+    resetAnalytics();
     router.replace("/login");
     router.refresh();
   }

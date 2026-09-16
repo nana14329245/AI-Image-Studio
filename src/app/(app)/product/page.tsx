@@ -37,7 +37,7 @@ export default function ProductPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [view, setView] = useState<CompareView>("original");
-  const { progress, message, track } = useGenerationProgress();
+  const { progress, message, track } = useGenerationProgress("product");
   const input = useRef<HTMLInputElement>(null);
 
   async function selectFile(file?: File) {

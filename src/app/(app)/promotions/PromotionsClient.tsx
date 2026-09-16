@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { track } from "@/lib/analytics";
 import PageHeader from "@/components/PageHeader";
 import { TOOL_CREDIT_COST, planById, type PlanId } from "@/lib/plans";
 
@@ -88,6 +89,7 @@ export default function PromotionsClient({
   const [error, setError] = useState<string | null>(null);
 
   async function handleCheckout(planId: "pro" | "business") {
+    track("checkout_started", { plan: planId });
     setLoadingPlan(planId);
     setError(null);
     try {

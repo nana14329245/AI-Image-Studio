@@ -77,7 +77,11 @@ export const config = {
     /*
      * Run on every path except static assets and image optimization files.
      * Keep this list in sync with what Next.js serves from /public.
+     *
+     * The metadata routes are excluded because they are read by crawlers and by
+     * the link-preview scrapers behind LINE and Facebook, which carry no session:
+     * left in, they were answered with a 307 to /login and no preview rendered.
      */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|webp|gif)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|opengraph-image|.*\\.(?:svg|png|jpg|jpeg|webp|gif)$).*)",
   ],
 };

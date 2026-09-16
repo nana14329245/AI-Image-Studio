@@ -30,7 +30,7 @@ export default function AdsPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [view, setView] = useState<CompareView>("original");
-  const { progress, message, track } = useGenerationProgress();
+  const { progress, message, track } = useGenerationProgress("ads");
   const input = useRef<HTMLInputElement>(null);
 
   function chooseFile(file?: File) {
