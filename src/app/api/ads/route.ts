@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { MAX_IMAGE_REQUEST_BODY_CHARS } from "@/lib/uploadLimits";
 import { brandColorPromptHint, getBrandKit } from "@/lib/brandKit";
 import {
   createGenerationContext,
@@ -15,7 +16,7 @@ const ASPECT_RATIOS = { "1:1": "1:1", "4:5": "3:4", "16:9": "16:9", "9:16": "9:1
 
 export async function POST(req: NextRequest) {
   const body = await req.text();
-  if (body.length > 6_000_000) return NextResponse.json({ error: "ไฟล์ใหญ่เกินไป กรุณาใช้ภาพขนาดไม่เกิน 4 MB" }, { status: 413 });
+  if (body.length > MAX_IMAGE_REQUEST_BODY_CHARS) return NextResponse.json({ error: "ไฟล์ใหญ่เกินไป กรุณาเลือกภาพใหม่อีกครั้ง ระบบจะย่อให้อัตโนมัติ" }, { status: 413 });
 
   let input: { imageUrl?: unknown; productName?: unknown; benefits?: unknown; platform?: unknown; format?: unknown };
   try {

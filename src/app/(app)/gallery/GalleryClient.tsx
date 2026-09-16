@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 export type GenerationItem = {
   id: string;
   tool: string;
-  output_url: string | null;
+  image_url: string | null;
   created_at: string;
   scale: number | null;
 };
@@ -105,9 +105,9 @@ export default function GalleryClient({
           {generations.map((generation) => (
             <article key={generation.id} className="group relative">
               <div className="gallery-item relative overflow-hidden">
-                {generation.output_url ? (
+                {generation.image_url ? (
                   <img
-                    src={generation.output_url}
+                    src={generation.image_url}
                     alt={`${formatTool(generation.tool)} generation`}
                     loading="lazy"
                     className="size-full object-cover"

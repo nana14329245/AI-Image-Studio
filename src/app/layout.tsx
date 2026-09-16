@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import AnalyticsProvider from "@/components/AnalyticsProvider";
+import ConsentBanner from "@/components/ConsentBanner";
 import { getSiteUrl } from "@/lib/siteUrl";
 import "./globals.css";
 
@@ -33,6 +34,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body>
         <AnalyticsProvider />
         {children}
+        <ConsentBanner />
       </body>
     </html>
   );

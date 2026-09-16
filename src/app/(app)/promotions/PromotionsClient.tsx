@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { track } from "@/lib/analytics";
+import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import { TOOL_CREDIT_COST, planById, type PlanId } from "@/lib/plans";
+import { usePlanActions } from "@/components/usePlanActions";
 
 const focus = "focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40";
 
@@ -81,33 +81,13 @@ const TOPUP_BUNDLES = [
 
 export default function PromotionsClient({
   currentPlan,
+  subscribed,
 }: {
   currentPlan: PlanId;
-  currentCredits: number;
+  /** True when the customer has a live subscription and should switch plan rather than subscribe again. */
+  subscribed: boolean;
 }) {
-  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  async function handleCheckout(planId: "pro" | "business") {
-    track("checkout_started", { plan: planId });
-    setLoadingPlan(planId);
-    setError(null);
-    try {
-      const res = await fetch("/api/billing/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: planId }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.url) {
-        throw new Error(data.error || "ไม่สามารถเริ่มขั้นตอนชำระเงินได้");
-      }
-      window.location.assign(data.url);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "เกิดข้อผิดพลาดในการเชื่อมต่อกับ Stripe");
-      setLoadingPlan(null);
-    }
-  }
+  const planActions = usePlanActions();
 
   return (
     <>
@@ -125,9 +105,15 @@ export default function PromotionsClient({
       />
 
       <div className="page-wrap">
-        {error && (
+        {planActions.notice && (
+          <div role="status" className="mb-6 border border-ink bg-surface-alt p-4 text-sm text-success">
+            {planActions.notice}
+          </div>
+        )}
+
+        {planActions.error && (
           <div role="alert" className="mb-6 border border-danger bg-danger-bg p-4 text-sm text-danger">
-            {error}
+            {planActions.error}
           </div>
         )}
 
@@ -137,6 +123,11 @@ export default function PromotionsClient({
             <div>
               <p className="micro">01 / MONTHLY SUBSCRIPTION DEALS</p>
               <h3 className="mt-1 text-xl font-bold">แพ็กเกจรายเดือนสุดคุ้ม (ต่ออายุอัตโนมัติ)</h3>
+              <p className="mt-1 text-xs text-muted">
+                ยกเลิกได้ทุกเมื่อ ใช้งานได้จนสิ้นรอบบิลที่ชำระไว้ · เครดิตที่ไม่ได้ใช้ทบได้ไม่เกิน 2 เท่าของแพ็ก · ไม่มีใบกำกับภาษี ·{" "}
+                <Link href="/terms" className="underline underline-offset-4">ข้อตกลง</Link> ·{" "}
+                <Link href="/refund" className="underline underline-offset-4">การยกเลิกและคืนเงิน</Link>
+              </p>
             </div>
             <span className="font-mono text-xs text-muted">SECURED BY STRIPE</span>
           </div>
@@ -196,13 +187,15 @@ export default function PromotionsClient({
                     ) : (
                       <button
                         type="button"
-                        disabled={loadingPlan !== null}
-                        onClick={() => handleCheckout(promo.id)}
+                        disabled={planActions.busy !== null}
+                        onClick={() =>
+                          subscribed ? planActions.changePlan(promo.id, currentPlan) : planActions.subscribe(promo.id)
+                        }
                         className={`btn-primary w-full text-xs font-mono uppercase tracking-wider ${focus}`}
                       >
-                        {loadingPlan === promo.id
-                          ? "กำลังเปิด STRIPE..."
-                          : `GET ${plan.name.toUpperCase()} ↗`}
+                        {planActions.busy === promo.id
+                          ? subscribed ? "กำลังเปลี่ยนแพ็กเกจ..." : "กำลังเปิด STRIPE..."
+                          : subscribed ? `เปลี่ยนเป็น ${plan.name} ↗` : `GET ${plan.name.toUpperCase()} ↗`}
                       </button>
                     )}
                   </div>

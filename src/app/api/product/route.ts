@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { MAX_IMAGE_REQUEST_BODY_CHARS } from "@/lib/uploadLimits";
 import { brandColorPromptHint, getBrandKit } from "@/lib/brandKit";
 import {
   createGenerationContext,
@@ -14,7 +15,7 @@ export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
   const body = await req.text();
-  if (body.length > 6_000_000) return NextResponse.json({ error: "ไฟล์ใหญ่เกินไป กรุณาใช้ภาพขนาดไม่เกิน 4 MB" }, { status: 413 });
+  if (body.length > MAX_IMAGE_REQUEST_BODY_CHARS) return NextResponse.json({ error: "ไฟล์ใหญ่เกินไป กรุณาเลือกภาพใหม่อีกครั้ง ระบบจะย่อให้อัตโนมัติ" }, { status: 413 });
 
   let input: { imageUrl?: unknown; style?: unknown; background?: unknown };
   try {

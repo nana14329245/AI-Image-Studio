@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ownedGenerationPaths } from "./generationStorage";
+import { brandLogoPaths, ownedBrandLogoPath, ownedGenerationPaths } from "./generationStorage";
 
 const USER = "8f1b2c3d-1111-4222-8333-444455556666";
 const OTHER = "0a0b0c0d-9999-4888-8777-666655554444";
@@ -53,5 +53,27 @@ describe("ownedGenerationPaths", () => {
   it("does not repeat a path listed in both places", () => {
     const path = `${USER}/${GEN}/output.png`;
     expect(ownedGenerationPaths(USER, GEN, path, { output_paths: [path] })).toEqual([path]);
+  });
+});
+
+describe("ownedBrandLogoPath", () => {
+  it("keeps the logo files the brand kit route writes", () => {
+    expect(ownedBrandLogoPath(USER, `${USER}/brand-kit/logo.png`)).toBe(`${USER}/brand-kit/logo.png`);
+    expect(ownedBrandLogoPath(USER, `${USER}/brand-kit/logo.webp`)).toBe(`${USER}/brand-kit/logo.webp`);
+  });
+
+  it("drops another user's logo, which the service role would otherwise read", () => {
+    expect(ownedBrandLogoPath(USER, `${OTHER}/brand-kit/logo.png`)).toBeNull();
+  });
+
+  it("drops generation outputs, traversal and other shapes", () => {
+    expect(ownedBrandLogoPath(USER, `${USER}/${GEN}/output.png`)).toBeNull();
+    expect(ownedBrandLogoPath(USER, `${USER}/brand-kit/../${OTHER}/brand-kit/logo.png`)).toBeNull();
+    expect(ownedBrandLogoPath(USER, `${USER}/brand-kit/logo.jpg`)).toBeNull();
+    expect(ownedBrandLogoPath(USER, null)).toBeNull();
+  });
+
+  it("covers every extension the route can write when listing files to remove", () => {
+    for (const path of brandLogoPaths(USER)) expect(ownedBrandLogoPath(USER, path)).toBe(path);
   });
 });

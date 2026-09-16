@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isSupportedImageDataUrl } from "@/lib/imageGeneration";
 import { getBrandKit, isValidHexColor, logoHasTransparency } from "@/lib/brandKit";
+import { brandLogoPaths } from "@/lib/generationStorage";
+import { generationsBucket, signStoragePaths } from "@/lib/signedUrls";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 
 export async function GET() {
@@ -10,8 +12,9 @@ export async function GET() {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "กรุณาเข้าสู่ระบบก่อนใช้งาน" }, { status: 401 });
 
-  const kit = await getBrandKit(supabase, user.id);
-  return NextResponse.json(kit);
+  const { logoPath, primaryColor, secondaryColor } = await getBrandKit(supabase, user.id);
+  const [logoUrl] = logoPath ? await signStoragePaths([logoPath]) : [null];
+  return NextResponse.json({ logoUrl, primaryColor, secondaryColor });
 }
 
 export async function POST(req: NextRequest) {
@@ -57,8 +60,12 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Files to delete once the profile no longer points at them.
+  let staleLogoPaths: string[] = [];
+
   if (input.removeLogo === true) {
     update.brand_logo_path = null;
+    staleLogoPaths = brandLogoPaths(user.id);
   }
 
   if (typeof input.logo === "string") {
@@ -96,12 +103,12 @@ export async function POST(req: NextRequest) {
       const extension = image.type === "image/webp" ? "webp" : "png";
       const path = `${user.id}/brand-kit/logo.${extension}`;
 
-      const { error: uploadError } = await createServiceRoleClient()
-        .storage.from("generations")
-        .upload(path, image, { contentType: image.type, upsert: true });
+      const { error: uploadError } = await generationsBucket().upload(path, image, { contentType: image.type, upsert: true });
       if (uploadError) throw uploadError;
 
       update.brand_logo_path = path;
+      // A PNG replacing a WebP logo, or the reverse, leaves the old file behind.
+      staleLogoPaths = brandLogoPaths(user.id).filter((candidate) => candidate !== path);
     } catch (error) {
       console.error("Brand kit logo upload failed", error);
       return NextResponse.json({ error: "อัปโหลดโลโก้ไม่สำเร็จ กรุณาลองใหม่" }, { status: 500 });
@@ -112,10 +119,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
-  const { error: updateError } = await supabase.from("profiles").update(update).eq("id", user.id);
+  // Written with the service role: users no longer have update rights on
+  // brand_logo_path, so they cannot point it at a file this route did not write.
+  const { error: updateError } = await createServiceRoleClient().from("profiles").update(update).eq("id", user.id);
   if (updateError) {
     console.error("Brand kit profile update failed", updateError);
     return NextResponse.json({ error: "บันทึกข้อมูลไม่สำเร็จ กรุณาลองใหม่" }, { status: 500 });
+  }
+
+  if (staleLogoPaths.length > 0) {
+    // After the profile update, so a failure here only leaves an unused file behind.
+    const { error: removeError } = await generationsBucket().remove(staleLogoPaths);
+    if (removeError) console.error("Brand kit old logo removal failed", removeError);
   }
 
   return NextResponse.json({ ok: true });

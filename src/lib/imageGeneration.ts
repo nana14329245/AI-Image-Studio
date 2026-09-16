@@ -1,9 +1,11 @@
 import { createFalClient } from "@fal-ai/client";
 import { NextRequest, NextResponse } from "next/server";
-import { getBrandKit, overlayBrandLogo } from "@/lib/brandKit";
+import { downloadBrandLogo, getBrandKit, overlayBrandLogo } from "@/lib/brandKit";
 import { InsufficientCreditsError, refundGenerationCredits, spendCredits } from "@/lib/credits";
 import { TOOL_CREDIT_COST, type FixedPriceTool } from "@/lib/plans";
+import { ownedGenerationPaths } from "@/lib/generationStorage";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
+import { generationsBucket, signStoragePaths } from "@/lib/signedUrls";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
@@ -51,6 +53,12 @@ export async function createGenerationContext(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "กรุณาเข้าสู่ระบบก่อนใช้งาน" }, { status: 401 });
+  // An unconfirmed address could be anyone's, so it cannot be used to farm signup
+  // credits. Supabase normally blocks sign-in until confirmation; this holds even
+  // if that project setting is turned off.
+  if (!user.email_confirmed_at) {
+    return NextResponse.json({ error: "กรุณายืนยันอีเมลก่อนใช้เครดิต โดยกดลิงก์ในอีเมลที่เราส่งให้ตอนสมัคร" }, { status: 403 });
+  }
 
   const rate = await checkRateLimit({ userId: user.id, ip: getClientIp(req), action: tool });
   if (!rate.allowed) {
@@ -200,18 +208,23 @@ export async function enqueueMultipleGenerations(
 
     const { data: generation, error } = await supabase
       .from("generations")
-      .select("id, tool, status, error, output_url, credits_spent, fal_endpoint, fal_request_id, finalizing_started_at, generation_metadata")
+      .select("id, tool, status, error, output_path, output_url, credits_spent, fal_endpoint, fal_request_id, finalizing_started_at, generation_metadata")
       .eq("id", generationId)
       .eq("user_id", user.id)
       .single();
     if (error || !generation) return NextResponse.json({ error: "ไม่พบงานสร้างภาพนี้" }, { status: 404 });
 
     if (generation.status === "completed") {
-      const metadata = generation.generation_metadata as Record<string, unknown> | null;
-      const storedResults = Array.isArray(metadata?.results) && metadata.results.every(u => typeof u === "string")
-        ? (metadata.results as string[])
-        : (generation.output_url ? [generation.output_url] : []);
-      return NextResponse.json({ status: "completed", progress: 100, result: generation.output_url, results: storedResults, generationId, creditsSpent: generation.credits_spent, copy: adCopy(generation.generation_metadata) });
+      const paths = ownedGenerationPaths(user.id, generationId, generation.output_path, generation.generation_metadata);
+      let results: string[];
+      try {
+        // Rows from before results were copied to storage only have the provider's URL.
+        results = paths.length > 0 ? await signStoragePaths(paths) : (generation.output_url ? [generation.output_url] : []);
+      } catch (error) {
+        console.error("[generation status] signing result URLs failed", generationId, error);
+        return NextResponse.json({ status: "saving", progress: 95, message: "กำลังเตรียมภาพผลลัพธ์" });
+      }
+      return NextResponse.json({ status: "completed", progress: 100, result: results[0], results, generationId, creditsSpent: generation.credits_spent, copy: adCopy(generation.generation_metadata) });
     }
     if (generation.status === "failed") return NextResponse.json({ status: "failed", error: "งานสร้างภาพไม่สำเร็จ กรุณาลองใหม่" }, { status: 502 });
     if (!generation.fal_endpoint || !generation.fal_request_id) return NextResponse.json({ status: "processing", progress: 5, message: "กำลังส่งงานเข้าคิว" });
@@ -340,18 +353,19 @@ export async function completeGeneration(
   }
 
   try {
-    const logoUrl = context.tool !== "upscale" ? (await getBrandKit(context.supabase, context.userId)).logoUrl : null;
-    const stored = await persistGeneratedImages(context.userId, context.generationId, results, logoUrl);
+    const logoPath = context.tool !== "upscale" ? (await getBrandKit(context.supabase, context.userId)).logoPath : null;
+    const paths = await persistGeneratedImages(context.userId, context.generationId, results, logoPath);
+    // Only paths are stored: the bucket is private, so any URL saved here would
+    // stop working. Readers sign fresh links from these paths.
     const updatedMetadata = {
       ...metadata,
-      results: stored.urls,
-      output_paths: stored.paths,
+      output_paths: paths,
     };
     const { error: finalizeError } = await generationsTable()
       .update({
         status: "completed",
-        output_path: stored.paths[0],
-        output_url: stored.urls[0],
+        output_path: paths[0],
+        output_url: null,
         generation_metadata: updatedMetadata,
       })
       .eq("id", context.generationId)
@@ -360,7 +374,16 @@ export async function completeGeneration(
     const { data: profile } = await createServiceRoleClient()
       .from("profiles").select("credits").eq("id", context.userId).single();
     const remaining = profile?.credits ?? 0;
-    return { remaining, result: stored.urls[0], results: stored.urls, generationId: context.generationId };
+    let urls: string[];
+    try {
+      urls = await signStoragePaths(paths);
+    } catch (error) {
+      // The images are saved and the row is complete, so this must not reach the
+      // caller's failure path, which would refund the work. The next poll signs again.
+      console.error("[completeGeneration] signing result URLs failed", context.generationId, error);
+      return { response: NextResponse.json({ status: "saving", progress: 95, message: "กำลังเตรียมภาพผลลัพธ์" }) };
+    }
+    return { remaining, result: urls[0], results: urls, generationId: context.generationId };
   } catch (error) {
     if (error instanceof Error && error.message === "generated_image_too_large") {
       await failGeneration(context, "output_too_large");
@@ -371,10 +394,18 @@ export async function completeGeneration(
   }
 }
 
-export async function persistGeneratedImages(userId: string, generationId: string, results: string[], logoUrl?: string | null) {
+/** Copies provider results into the private bucket and returns their storage paths. */
+export async function persistGeneratedImages(userId: string, generationId: string, results: string[], logoPath?: string | null) {
   const paths: string[] = [];
-  const urls: string[] = [];
-  const storage = createServiceRoleClient().storage.from("generations");
+  const storage = generationsBucket();
+  let logo: Blob | null = null;
+  if (logoPath) {
+    try {
+      logo = await downloadBrandLogo(logoPath);
+    } catch (error) {
+      console.error("[persistGeneratedImages] brand logo download failed", error);
+    }
+  }
 
   for (let i = 0; i < results.length; i += 1) {
     const result = results[i];
@@ -382,9 +413,9 @@ export async function persistGeneratedImages(userId: string, generationId: strin
     if (!providerResponse.ok) throw new Error("Unable to retrieve generated image");
     let image = await providerResponse.blob();
     if (!image.type.startsWith("image/")) throw new Error("Provider returned an invalid image");
-    if (logoUrl) {
+    if (logo) {
       try {
-        image = await overlayBrandLogo(image, logoUrl);
+        image = await overlayBrandLogo(image, logo);
       } catch (error) {
         console.error("[persistGeneratedImages] brand logo overlay failed", error);
       }
@@ -400,15 +431,9 @@ export async function persistGeneratedImages(userId: string, generationId: strin
     }
     if (error) throw error;
     paths.push(path);
-    urls.push(storage.getPublicUrl(path).data.publicUrl);
   }
 
-  return { paths, urls };
-}
-
-export async function persistGeneratedImage(userId: string, generationId: string, result: string) {
-  const { paths, urls } = await persistGeneratedImages(userId, generationId, [result]);
-  return { path: paths[0], url: urls[0] };
+  return paths;
 }
 
 /**

@@ -6,21 +6,8 @@ import { GenerationProgress, useGenerationProgress } from "@/components/Generati
 import { TOOL_CREDIT_COST } from "@/lib/plans";
 import { PORTRAIT_BACKGROUNDS, PORTRAIT_CAREERS, PORTRAIT_SIZES } from "@/lib/toolOptions";
 import CompareToggle, { type CompareView } from "@/components/CompareToggle";
-
-const acceptedTypes = ["image/jpeg", "image/png", "image/webp"];
-const maxFileSize = 4 * 1024 * 1024;
-
-function readAsDataUri(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () =>
-      typeof reader.result === "string"
-        ? resolve(reader.result)
-        : reject(new Error("อ่านไฟล์ไม่สำเร็จ"));
-    reader.onerror = () => reject(new Error("อ่านไฟล์ไม่สำเร็จ"));
-    reader.readAsDataURL(file);
-  });
-}
+import { prepareImageUpload, uploadErrorMessage } from "@/lib/clientImage";
+import { GENERATION_UPLOAD_MAX_EDGE, MAX_SOURCE_FILE_MB } from "@/lib/uploadLimits";
 
 export default function PortraitPage() {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -44,22 +31,12 @@ export default function PortraitPage() {
     setView("original");
 
     if (!selectedFile) return;
-    if (!acceptedTypes.includes(selectedFile.type)) {
-      setImageUrl(null);
-      setError("กรุณาเลือกไฟล์ JPG, PNG หรือ WebP");
-      return;
-    }
-    if (selectedFile.size > maxFileSize) {
-      setImageUrl(null);
-      setError("ไฟล์ต้องมีขนาดไม่เกิน 4 MB");
-      return;
-    }
 
     try {
-      setImageUrl(await readAsDataUri(selectedFile));
+      setImageUrl((await prepareImageUpload(selectedFile, GENERATION_UPLOAD_MAX_EDGE)).dataUrl);
     } catch (readError) {
       setImageUrl(null);
-      setError(readError instanceof Error ? readError.message : "อ่านไฟล์ไม่สำเร็จ");
+      setError(uploadErrorMessage(readError));
     }
   };
 
@@ -137,7 +114,7 @@ export default function PortraitPage() {
               <span>
                 <span className="mb-4 block text-5xl">◎</span>
                 <span className="block">{imageUrl ? "เปลี่ยนรูปโปรไฟล์" : "อัปโหลดรูปของคุณ"}</span>
-                <span className="mt-2 block text-xs text-muted">JPG, PNG หรือ WebP · สูงสุด 4 MB</span>
+                <span className="mt-2 block text-xs text-muted">JPG, PNG หรือ WebP · สูงสุด {MAX_SOURCE_FILE_MB} MB</span>
               </span>
             </button>
             {error && <p role="alert" className="mt-3 text-sm text-red-600">{error}</p>}

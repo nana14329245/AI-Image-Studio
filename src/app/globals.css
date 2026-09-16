@@ -194,3 +194,9 @@ input::placeholder, textarea::placeholder { color: var(--muted-soft); }
   .spinner { animation:none; }
   body { transition:none; }
 }
+
+/* Legal pages: readable long-form text inside LegalPage sections. */
+.legal-body > * + * { margin-top: .75rem; }
+.legal-body ul { list-style: disc; padding-left: 1.25rem; }
+.legal-body li + li { margin-top: .35rem; }
+.legal-body a { text-decoration: underline; text-underline-offset: 4px; }

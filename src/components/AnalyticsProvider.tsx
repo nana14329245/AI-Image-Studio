@@ -2,21 +2,25 @@
 
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useEffect } from "react";
-import { capturePageView, initAnalytics } from "@/lib/analytics";
+import { capturePageView, initAnalytics, stopAnalytics } from "@/lib/analytics";
+import { useConsent } from "@/lib/consent";
 
 function PageViews() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const consent = useConsent();
 
   useEffect(() => {
-    initAnalytics();
-  }, []);
+    // Nothing loads before the visitor accepts. Undecided counts as a refusal.
+    if (consent === "granted") initAnalytics();
+    else stopAnalytics();
+  }, [consent]);
 
   useEffect(() => {
     // The query string is dropped: it carries the ?next= redirect target and
     // Stripe's session id, neither of which belongs in an analytics event.
-    capturePageView(pathname);
-  }, [pathname, searchParams]);
+    if (consent === "granted") capturePageView(pathname);
+  }, [pathname, searchParams, consent]);
 
   return null;
 }

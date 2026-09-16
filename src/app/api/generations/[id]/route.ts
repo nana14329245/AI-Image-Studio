@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ownedGenerationPaths } from "@/lib/generationStorage";
-import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
+import { generationsBucket } from "@/lib/signedUrls";
+import { createClient } from "@/lib/supabase/server";
 
 export async function DELETE(
   _req: NextRequest,
@@ -30,7 +31,7 @@ export async function DELETE(
   if (storagePaths.length > 0) {
     // Supabase reports storage failures in the result rather than by throwing, so
     // the row is kept when removal fails: deleting it would orphan the files.
-    const { error: removeError } = await createServiceRoleClient().storage.from("generations").remove(storagePaths);
+    const { error: removeError } = await generationsBucket().remove(storagePaths);
     if (removeError) {
       console.error("Failed to delete storage objects", id, removeError);
       return NextResponse.json({ error: "ลบไฟล์ภาพไม่สำเร็จ กรุณาลองใหม่" }, { status: 500 });

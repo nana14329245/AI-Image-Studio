@@ -34,9 +34,15 @@ New accounts get 24 credits — enough for one run of every tool. Paid plans are
 
 The parts worth reading, and why they are the way they are:
 
-**Credits are only spent on delivered work.** A generation is recorded before the provider is called, but credits are deducted only after the result has been fetched from fal.ai *and* written to Supabase Storage. A failed or lost generation costs the user nothing.
+**Credits are only kept for delivered work.** Credits are deducted when a job is submitted, in the same locked row update that checks the balance, so neither skipping the status poll nor firing requests in parallel gets work for free. If the provider fails or the result cannot be saved, `refund_generation_credits` returns them exactly once.
 
-**Credit movements are idempotent.** `spend_credits` and `grant_credits` are Postgres functions, not application code, so concurrent requests cannot interleave into a double-spend. Subscription renewals are keyed on the Stripe event so a redelivered webhook cannot grant the same month's credits twice — see migrations `0005` and `0006`, both of which exist because the naive version was wrong.
+**One subscription per customer.** Checkout asks Stripe — not the profile, which only learns about a subscription when a webhook lands — whether the customer already has one that can still bill, and refuses a second. Existing subscribers switch plan instead: upgrades charge the prorated difference with `pending_if_incomplete`, so a declined card cannot unlock the bigger plan, and the webhook grants the credit gap once the change applies.
+
+**Credit movements are idempotent.** `spend_credits` and `grant_credits` are Postgres functions, not application code, so concurrent requests cannot interleave into a double-spend. Monthly grants are keyed on the Stripe invoice, so a redelivered webhook cannot grant the same month's credits twice, and they are capped at twice the plan allowance — see migrations `0005` and `0006`, both of which exist because the naive version was wrong.
+
+**Images are private.** The `generations` bucket is not public and has no end-user storage policies. Only server routes touch it, through the service role, after checking that each path is in the caller's own folder. The database stores paths, never URLs, and pages sign one-hour links when they render.
+
+**Analytics waits for consent.** Nothing from PostHog loads until the visitor accepts, refusing is one click of the same size as accepting, and refusing or withdrawing later deletes the identifiers PostHog stored. The legal pages read prices, credit costs and the rollover limit from `src/lib/plans.ts`, so they cannot drift from what the app charges.
 
 **Generation survives an interrupted save.** Jobs are submitted to the fal.ai queue and polled through `/api/generations/[id]/status`, which is owner-scoped. A row stuck in `finalizing` for more than 90 seconds is reclaimed and retried, so a server restart mid-save does not strand the job or the credits.
 
@@ -65,7 +71,8 @@ Fill in `.env.local`:
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | billing |
 | `STRIPE_PRICE_PRO`, `STRIPE_PRICE_BUSINESS` | billing |
 | `NEXT_PUBLIC_SITE_URL` | link previews, sitemap, robots.txt (crawling is blocked until set) |
-| `NEXT_PUBLIC_POSTHOG_KEY`, `NEXT_PUBLIC_POSTHOG_HOST` | optional analytics — off when empty |
+| `NEXT_PUBLIC_POSTHOG_KEY`, `NEXT_PUBLIC_POSTHOG_HOST` | optional analytics — off when empty; with a key, loads only after the visitor accepts the consent banner |
+| `NEXT_PUBLIC_LEGAL_SELLER_NAME`, `NEXT_PUBLIC_LEGAL_CONTACT_EMAIL` | seller name and contact address on `/terms`, `/privacy`, `/refund`, `/contact` — the pages show a placeholder until set |
 
 Without a valid Supabase URL and key the app redirects to `/setup` and the API returns 503 rather than silently skipping auth.
 
@@ -73,7 +80,7 @@ Setup problems are collected in [docs/troubleshooting-th.md](docs/troubleshootin
 
 ### Supabase
 
-1. Apply every migration in `supabase/migrations/` in filename order (SQL editor, or `supabase db push`). They create `profiles`, `credit_ledger`, `generations`, `rate_limit_events`, the `spend_credits` / `grant_credits` / `check_rate_limit` functions, the RLS policies, and the `generations` storage bucket.
+1. Apply every migration in `supabase/migrations/` in filename order (SQL editor, or `supabase db push`). They create `profiles`, `credit_ledger`, `generations`, `rate_limit_events`, the `spend_credits` / `grant_credits` / `check_rate_limit` functions, the RLS policies, and the private `generations` storage bucket.
 2. Auth → Providers: enable Email and Google.
 3. Auth → URL Configuration: add your site URL and `/auth/callback`.
 4. Storage: raise the `generations` bucket limit to 50 MB (migration `0003` does this; the project-wide limit must also allow it).
@@ -81,8 +88,13 @@ Setup problems are collected in [docs/troubleshooting-th.md](docs/troubleshootin
 ### Stripe
 
 1. Create recurring prices for Pro and Business; put the IDs in `STRIPE_PRICE_PRO` / `STRIPE_PRICE_BUSINESS`.
-2. Point a webhook at `/api/webhooks/stripe` for `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted` and `invoice.paid`.
-3. Locally: `stripe listen --forward-to localhost:3000/api/webhooks/stripe`.
+2. Point a webhook at `/api/webhooks/stripe` for `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid` and `invoice.payment_failed`.
+3. Billing portal: enable cancellation (at period end), payment-method update and invoice history. Plan switching is done in the app (`/api/billing/change-plan`), not in the portal, so leave the portal's subscription-update feature off.
+4. Locally: `stripe listen --forward-to localhost:3000/api/webhooks/stripe`, and use the signing secret it prints as `STRIPE_WEBHOOK_SECRET`.
+
+## Deploying
+
+[docs/deploy-th.md](docs/deploy-th.md) (Thai) walks through Vercel, Supabase auth URLs and the Stripe webhook in test mode first, then switching Stripe to live. Uploads are shrunk in the browser to fit Vercel's 4.5 MB request limit (`src/lib/clientImage.ts`), so phone photos up to 20 MB work.
 
 ## Development
 

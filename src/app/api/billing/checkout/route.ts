@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { getStripe } from "@/lib/stripe";
 import { planById, stripePriceIdForPlan } from "@/lib/plans";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
+import { blocksNewCheckout } from "@/lib/subscriptions";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -33,13 +34,36 @@ export async function POST(req: NextRequest) {
   const origin = req.headers.get("origin") ?? new URL(req.url).origin;
 
   let customerId = profile?.stripe_customer_id ?? undefined;
+
+  // Asked of Stripe rather than read from the profile: the profile only learns about
+  // a subscription when a webhook lands, and trusting it let a customer who was
+  // already subscribed start a second subscription and be billed for both.
+  if (customerId) {
+    const existing = await stripe.subscriptions.list({ customer: customerId, status: "all", limit: 20 });
+    if (existing.data.some((subscription) => blocksNewCheckout(subscription.status))) {
+      return NextResponse.json(
+        { error: "คุณมีแพ็กเกจที่ยังใช้งานอยู่ กรุณาเปลี่ยนแพ็กเกจจากหน้าบัญชีแทนการสมัครใหม่", code: "subscription_exists" },
+        { status: 409 }
+      );
+    }
+  }
+
   if (!customerId) {
     const customer = await stripe.customers.create({
       email: profile?.email ?? user.email ?? undefined,
       metadata: { userId: user.id },
     });
     customerId = customer.id;
-    await supabase.from("profiles").update({ stripe_customer_id: customerId }).eq("id", user.id);
+    // Service role: users hold no update grant on stripe_customer_id, so this write
+    // used to fail silently and every abandoned checkout created another customer.
+    const { error: saveError } = await createServiceRoleClient()
+      .from("profiles")
+      .update({ stripe_customer_id: customerId })
+      .eq("id", user.id);
+    if (saveError) {
+      console.error("[checkout] could not save stripe customer", user.id, saveError);
+      return NextResponse.json({ error: "เริ่มการชำระเงินไม่สำเร็จ กรุณาลองใหม่" }, { status: 500 });
+    }
   }
 
   const session = await stripe.checkout.sessions.create({
