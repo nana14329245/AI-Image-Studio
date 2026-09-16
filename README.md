@@ -92,6 +92,10 @@ Setup problems are collected in [docs/troubleshooting-th.md](docs/troubleshootin
 3. Billing portal: enable cancellation (at period end), payment-method update and invoice history. Plan switching is done in the app (`/api/billing/change-plan`), not in the portal, so leave the portal's subscription-update feature off.
 4. Locally: `stripe listen --forward-to localhost:3000/api/webhooks/stripe`, and use the signing secret it prints as `STRIPE_WEBHOOK_SECRET`.
 
+## Deploying
+
+[docs/deploy-th.md](docs/deploy-th.md) (Thai) walks through Vercel, Supabase auth URLs and the Stripe webhook in test mode first, then switching Stripe to live. Uploads are shrunk in the browser to fit Vercel's 4.5 MB request limit (`src/lib/clientImage.ts`), so phone photos up to 20 MB work.
+
 ## Development
 
 ```bash

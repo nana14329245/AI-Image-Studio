@@ -6,6 +6,8 @@ import { GenerationProgress, useGenerationProgress } from "@/components/Generati
 import { TOOL_CREDIT_COST } from "@/lib/plans";
 import { AD_FORMATS, AD_PLATFORMS } from "@/lib/toolOptions";
 import CompareToggle, { type CompareView } from "@/components/CompareToggle";
+import { prepareImageUpload, uploadErrorMessage } from "@/lib/clientImage";
+import { GENERATION_UPLOAD_MAX_EDGE, MAX_SOURCE_FILE_MB } from "@/lib/uploadLimits";
 
 const focus = "focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40";
 
@@ -33,25 +35,18 @@ export default function AdsPage() {
   const { progress, message, track } = useGenerationProgress("ads");
   const input = useRef<HTMLInputElement>(null);
 
-  function chooseFile(file?: File) {
+  async function chooseFile(file?: File) {
     if (!file || busy) return;
     setError("");
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      setImageUrl(null);
-      return setError("รองรับไฟล์ JPG, PNG และ WebP เท่านั้น");
-    }
-    if (file.size > 4 * 1024 * 1024) {
-      setImageUrl(null);
-      return setError("กรุณาเลือกไฟล์ขนาดไม่เกิน 4 MB");
-    }
-    const reader = new FileReader();
-    reader.onerror = () => setError("อ่านไฟล์ไม่สำเร็จ กรุณาลองอีกครั้ง");
-    reader.onload = () => {
-      setImageUrl(String(reader.result));
+    try {
+      const prepared = await prepareImageUpload(file, GENERATION_UPLOAD_MAX_EDGE);
+      setImageUrl(prepared.dataUrl);
       setGenerated(null);
       setView("original");
-    };
-    reader.readAsDataURL(file);
+    } catch (cause) {
+      setImageUrl(null);
+      setError(uploadErrorMessage(cause));
+    }
   }
 
   async function generate() {
@@ -93,7 +88,7 @@ export default function AdsPage() {
           <p className="micro mb-5">01 / CAMPAIGN INPUT</p>
           <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={event => { chooseFile(event.target.files?.[0]); event.target.value = ""; }} />
           <button type="button" disabled={busy} onClick={() => input.current?.click()} className={`dropzone min-h-40 w-full ${focus}`}>
-            <span><span aria-hidden="true" className="mb-3 block text-4xl">＋</span>{imageUrl ? "เปลี่ยนรูปสินค้า" : "อัปโหลดรูปสินค้า"}<span className="mt-2 block font-mono text-xs text-muted">JPG, PNG, WEBP / MAX. 4 MB</span></span>
+            <span><span aria-hidden="true" className="mb-3 block text-4xl">＋</span>{imageUrl ? "เปลี่ยนรูปสินค้า" : "อัปโหลดรูปสินค้า"}<span className="mt-2 block font-mono text-xs text-muted">JPG, PNG, WEBP / MAX. {MAX_SOURCE_FILE_MB} MB</span></span>
           </button>
           <label className="mt-6 block text-sm">ชื่อสินค้า<input value={productName} maxLength={120} disabled={busy} onChange={event => setProductName(event.target.value)} className={`form-field mt-2 ${focus}`} placeholder="เช่น อ่างล้างมือ Mogen" /></label>
           <label className="mt-5 block text-sm">จุดเด่น<textarea value={benefits} maxLength={500} disabled={busy} onChange={event => setBenefits(event.target.value)} className={`form-field mt-2 min-h-28 resize-y ${focus}`} placeholder={"ดีไซน์เรียบหรู\nติดตั้งง่าย\nเหมาะกับห้องน้ำสมัยใหม่"} /></label>

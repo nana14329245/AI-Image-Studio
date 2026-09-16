@@ -6,9 +6,8 @@ import { GenerationProgress, useGenerationProgress } from "@/components/Generati
 import { TOOL_CREDIT_COST } from "@/lib/plans";
 import { PRODUCT_BACKGROUNDS, PRODUCT_STYLES } from "@/lib/toolOptions";
 import CompareToggle, { type CompareView } from "@/components/CompareToggle";
-
-const MAX_FILE_SIZE = 4 * 1024 * 1024;
-const supportedTypes = ["image/jpeg", "image/png", "image/webp"];
+import { prepareImageUpload, uploadErrorMessage } from "@/lib/clientImage";
+import { GENERATION_UPLOAD_MAX_EDGE, MAX_SOURCE_FILE_MB } from "@/lib/uploadLimits";
 
 const ANGLE_PRESETS = [
   { id: 0, tag: "01 / FRONT", label: "มุมตรงด้านหน้า (Eye-Level)", desc: "ภาพหน้าร้าน ชัดเจน ครบถ้วน" },
@@ -16,15 +15,6 @@ const ANGLE_PRESETS = [
   { id: 2, tag: "03 / FLATLAY", label: "มุมท็อป (Top-Down Flatlay)", desc: "จัดวางบนพื้น สไตล์นิตยสาร" },
   { id: 3, tag: "04 / LIFESTYLE", label: "มุมจัดฉาก (In-Context)", desc: "บรรยากาศการใช้งานจริง" },
 ];
-
-function readAsDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => typeof reader.result === "string" ? resolve(reader.result) : reject(new Error("อ่านไฟล์ไม่สำเร็จ"));
-    reader.onerror = () => reject(new Error("อ่านไฟล์ไม่สำเร็จ"));
-    reader.readAsDataURL(file);
-  });
-}
 
 export default function ProductPage() {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -48,13 +38,11 @@ export default function ProductPage() {
     setGenerationId(null);
     setView("original");
     if (!file) return;
-    if (!supportedTypes.includes(file.type)) return setError("กรุณาเลือกไฟล์ JPG, PNG หรือ WebP");
-    if (file.size > MAX_FILE_SIZE) return setError("ไฟล์ต้องมีขนาดไม่เกิน 4 MB");
     try {
-      setImageUrl(await readAsDataUrl(file));
+      setImageUrl((await prepareImageUpload(file, GENERATION_UPLOAD_MAX_EDGE)).dataUrl);
     } catch (cause) {
       setImageUrl(null);
-      setError(cause instanceof Error ? cause.message : "อ่านไฟล์ไม่สำเร็จ");
+      setError(uploadErrorMessage(cause));
     }
   }
 
@@ -134,7 +122,7 @@ export default function ProductPage() {
               <span>
                 <span className="mb-4 block text-4xl">＋</span>
                 <span className="block">{imageUrl ? "เปลี่ยนรูปสินค้า" : "อัปโหลดรูปสินค้า"}</span>
-                <span className="mt-2 block text-xs text-muted">รูปเดียวสร้างได้ครบ 4 มุมมอง · สูงสุด 4 MB</span>
+                <span className="mt-2 block text-xs text-muted">รูปเดียวสร้างได้ครบ 4 มุมมอง · สูงสุด {MAX_SOURCE_FILE_MB} MB</span>
               </span>
             </button>
             {error && <p role="alert" className="mt-3 text-sm text-accent">{error}</p>}
