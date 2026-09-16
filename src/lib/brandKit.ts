@@ -41,6 +41,22 @@ export function brandColorPromptHint(kit: BrandKit): string | null {
 }
 
 /**
+ * Whether the logo has any see-through pixels.
+ *
+ * The logo is composited straight onto the generated image, so one with no
+ * transparency lands as a solid rectangle over the product. The check is on the
+ * pixels rather than the file type on purpose: a JPEG can never be transparent,
+ * but a PNG exported on a white background is just as opaque and looks identical
+ * to the user until they see the result.
+ */
+export async function logoHasTransparency(image: Blob): Promise<boolean> {
+  const sharp = (await import("sharp")).default;
+  const buffer = Buffer.from(await image.arrayBuffer());
+  const { isOpaque } = await sharp(buffer).stats();
+  return !isOpaque;
+}
+
+/**
  * Composites `logoUrl` onto the bottom-right corner of `image` (~3% padding,
  * logo resized to ~14% of the base image's width) and returns a PNG blob.
  * Throws on any failure — callers must catch and fall back to the original

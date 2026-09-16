@@ -24,7 +24,7 @@ export default function BrandKitClient({ initialLogoUrl, initialPrimaryColor, in
   const previewLogo = pendingLogo ?? (removeLogo ? null : logoUrl);
   const dirty = primaryTouched || secondaryTouched || !!pendingLogo || removeLogo;
 
-  function chooseFile(file?: File) { if (!file || saving) return; setError(""); if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) return setError("รองรับไฟล์ JPG, PNG และ WebP เท่านั้น"); if (file.size > 2 * 1024 * 1024) return setError("กรุณาเลือกไฟล์ขนาดไม่เกิน 2 MB"); const reader = new FileReader(); reader.onerror = () => setError("อ่านไฟล์ไม่สำเร็จ กรุณาลองอีกครั้ง"); reader.onload = () => { setPendingLogo(String(reader.result)); setRemoveLogo(false); }; reader.readAsDataURL(file); }
+  function chooseFile(file?: File) { if (!file || saving) return; setError(""); if (!["image/png", "image/webp"].includes(file.type)) return setError("โลโก้ต้องเป็นไฟล์ PNG หรือ WebP ที่ลบพื้นหลังออกแล้ว (JPG ทำพื้นหลังโปร่งใสไม่ได้)"); if (file.size > 2 * 1024 * 1024) return setError("กรุณาเลือกไฟล์ขนาดไม่เกิน 2 MB"); const reader = new FileReader(); reader.onerror = () => setError("อ่านไฟล์ไม่สำเร็จ กรุณาลองอีกครั้ง"); reader.onload = () => { setPendingLogo(String(reader.result)); setRemoveLogo(false); }; reader.readAsDataURL(file); }
   function clearLogo() { setPendingLogo(null); setRemoveLogo(!!logoUrl); setError(""); }
 
   async function save() {
@@ -55,10 +55,10 @@ export default function BrandKitClient({ initialLogoUrl, initialPrimaryColor, in
         <div className="border border-ink p-6">
           <div className="mb-5 flex items-center justify-between"><h2 className="font-medium">โลโก้แบรนด์</h2><span className="micro">01 / LOGO</span></div>
           <div className="mb-4 flex h-40 items-center justify-center border border-line bg-surface-alt p-4">{previewLogo ? <img src={previewLogo} alt="โลโก้แบรนด์" className="max-h-full max-w-full object-contain" /> : <p className="text-center text-sm text-muted-soft">ยังไม่ได้อัปโหลดโลโก้</p>}</div>
-          <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={e => { chooseFile(e.target.files?.[0]); e.target.value = ""; }} />
-          <button type="button" disabled={saving} onClick={() => input.current?.click()} onDragOver={e => { e.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={e => { e.preventDefault(); setDragging(false); chooseFile(e.dataTransfer.files[0]); }} className={`dropzone w-full p-5 ${dragging ? "dragging" : ""} ${focus}`}><span><span aria-hidden="true" className="mb-3 block text-3xl font-light">＋</span><span className="block">ลากไฟล์มาวาง หรือเลือกไฟล์โลโก้</span><span className="mt-2 block font-mono text-xs text-muted">JPG, PNG, WEBP / MAX. 2 MB</span></span></button>
+          <input ref={input} type="file" accept="image/png,image/webp" className="sr-only" onChange={e => { chooseFile(e.target.files?.[0]); e.target.value = ""; }} />
+          <button type="button" disabled={saving} onClick={() => input.current?.click()} onDragOver={e => { e.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={e => { e.preventDefault(); setDragging(false); chooseFile(e.dataTransfer.files[0]); }} className={`dropzone w-full p-5 ${dragging ? "dragging" : ""} ${focus}`}><span><span aria-hidden="true" className="mb-3 block text-3xl font-light">＋</span><span className="block">ลากไฟล์มาวาง หรือเลือกไฟล์โลโก้</span><span className="mt-2 block font-mono text-xs text-muted">PNG / WEBP · พื้นหลังโปร่งใส · MAX. 2 MB</span></span></button>
           {previewLogo && <button type="button" disabled={saving} onClick={clearLogo} className={`btn-outline mt-4 w-full text-xs ${focus}`}>ลบโลโก้</button>}
-          <p className="mt-4 text-xs leading-5 text-muted-soft">โลโก้จะถูกประทับที่มุมขวาล่างของภาพที่สร้างขึ้นโดยอัตโนมัติ (ยกเว้นเครื่องมือขยายภาพ)</p>
+          <p className="mt-4 text-xs leading-5 text-muted-soft">โลโก้จะถูกประทับที่มุมขวาล่างของภาพที่สร้างขึ้นโดยอัตโนมัติ (ยกเว้นเครื่องมือขยายภาพ) — ต้องเป็นไฟล์ที่ลบพื้นหลังออกแล้ว ไม่งั้นจะกลายเป็นกรอบสี่เหลี่ยมทึบทับภาพ</p>
         </div>
         <div className="border border-ink p-6">
           <div className="mb-5 flex items-center justify-between"><h2 className="font-medium">โทนสีแบรนด์</h2><span className="micro">02 / COLORS</span></div>
