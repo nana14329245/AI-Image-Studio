@@ -23,7 +23,7 @@ One upload, one credit balance, four tools:
 
 **Brand Kit** stores a logo and brand colours once and reuses them across every generation — the logo is composited onto the output, and the colours are fed to the model as a mood hint rather than as rendered text.
 
-New accounts get 20 credits. Paid plans are ฿299/month (500 credits) and ฿999/month (2,000 credits) via Stripe.
+New accounts get 24 credits — enough for one run of every tool. Paid plans are ฿299/month (500 credits) and ฿999/month (2,000 credits) via Stripe.
 
 <p align="center">
   <img src="docs/screenshots/landing-mobile.png" width="300" alt="Landing page on mobile">

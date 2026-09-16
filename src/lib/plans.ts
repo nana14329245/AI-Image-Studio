@@ -11,6 +11,13 @@ function approxProductImages(credits: number): string {
   return `สร้างภาพสินค้าได้ประมาณ ${Math.floor(credits / TOOL_CREDIT_COST.product)} ครั้ง`;
 }
 
+/**
+ * Credits a new account starts with. Enough for one run of every tool, including
+ * Product Studio. The database grants these in the handle_new_user trigger
+ * (migration 0011), which cannot read this constant — change both together.
+ */
+export const SIGNUP_CREDITS = 24;
+
 export type PlanId = "free" | "pro" | "business";
 
 export interface PlanDef {
@@ -28,8 +35,8 @@ export const PLANS: PlanDef[] = [
     id: "free",
     name: "Free",
     monthlyPriceLabel: "฿0",
-    monthlyCredits: 20,
-    features: ["20 เครดิตเมื่อสมัคร", "ใช้ได้ครบทุกเครื่องมือ", approxProductImages(20)],
+    monthlyCredits: SIGNUP_CREDITS,
+    features: [`${SIGNUP_CREDITS} เครดิตเมื่อสมัคร`, "ใช้ได้ครบทุกเครื่องมือ", approxProductImages(SIGNUP_CREDITS)],
   },
   {
     id: "pro",

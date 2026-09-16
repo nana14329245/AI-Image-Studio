@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import { SIGNUP_CREDITS } from "@/lib/plans";
 
 export const alt = "AI Image Studio — ภาพสินค้ามืออาชีพสำหรับผู้ขายออนไลน์";
 export const size = { width: 1200, height: 630 };
@@ -55,7 +56,7 @@ export default function OpengraphImage() {
           }}
         >
           <span>For sellers on Shopee, Lazada and TikTok Shop</span>
-          <span>Start free — 20 credits</span>
+          <span>Start free — {SIGNUP_CREDITS} credits</span>
         </div>
       </div>
     ),
