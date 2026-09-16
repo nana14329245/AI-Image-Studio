@@ -2,17 +2,17 @@
 
 import { useState } from "react";
 import PageHeader from "@/components/PageHeader";
-import type { PlanId } from "@/lib/plans";
+import { TOOL_CREDIT_COST, planById, type PlanId } from "@/lib/plans";
 
 const focus = "focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40";
 
+/**
+ * Name, price and credit allowance come from PLANS so this page cannot drift
+ * from the pricing shown on the landing page. Only the sales copy lives here.
+ */
 type PromoPlan = {
   id: "pro" | "business";
-  name: string;
   badge: string;
-  promoPrice: string;
-  period: string;
-  credits: number;
   highlight: boolean;
   features: string[];
 };
@@ -20,73 +20,60 @@ type PromoPlan = {
 const PROMO_PLANS: PromoPlan[] = [
   {
     id: "pro",
-    name: "Creator Pro",
-    badge: "⚡ ยอดนิยมอันดับ 1",
-    promoPrice: "฿299",
-    period: "/เดือน",
-    credits: 500,
+    badge: "สำหรับร้านค้าที่เพิ่งเริ่มต้น",
     highlight: true,
     features: [
-      "500 เครดิตเต็มทุกเดือน",
-      "ขยายภาพ 4K Vivid Dehaze ลบหมอก",
-      "Product Studio สร้าง 4 มุมมองพร้อมกัน",
-      "คิวประมวลผลด่วน (Priority Queue)",
-      "ไม่มีลายน้ำ สิทธิ์ใช้งานเชิงพาณิชย์ 100%",
+      "ขยายภาพ 4K ด้วย Topaz ลบหมอก ปรับสีให้สด",
+      "Product Studio สร้างครบ 4 มุมมองในครั้งเดียว",
+      "คิวประมวลผลเร็วกว่าแพ็กฟรี",
+      "ใช้ภาพเพื่อการค้าได้เต็มที่",
     ],
   },
   {
     id: "business",
-    name: "Business Studio",
-    badge: "🔥 คุ้มค่าสูงสุดสำหรับร้านค้า",
-    promoPrice: "฿999",
-    period: "/เดือน",
-    credits: 2000,
+    badge: "สำหรับร้านที่ลงสินค้าจำนวนมาก",
     highlight: false,
     features: [
-      "2,000 เครดิตเต็มทุกเดือน",
-      "สร้างภาพสินค้าและโฆษณาได้ไม่อั้น",
-      "ความเร็วประมวลผลสูงสุด (Ultra Fast)",
-      "รองรับการทำงานหลายคนพร้อมกัน",
-      "Dedicated Support 24/7",
+      "เครดิตมากกว่าแพ็ก Pro 4 เท่า",
+      "คิวประมวลผลเร็วที่สุด",
+      "สร้างภาพต่อเนื่องได้ถี่กว่าทุกแพ็ก",
+      "ใช้ภาพเพื่อการค้าได้เต็มที่",
     ],
   },
 ];
 
+/**
+ * Planned one-off credit packs. There is no Stripe price and no purchase route
+ * for these yet — /api/billing/checkout only handles the two subscriptions — so
+ * they are shown as upcoming rather than as something that can be bought today.
+ */
 const TOPUP_BUNDLES = [
   {
     id: "topup-starter",
     name: "Starter Pack",
     price: "฿99",
     credits: "100 เครดิต",
-    unitPrice: "ตกรูปละ ~0.99 บาท",
-    badge: "ไม่มีวันหมดอายุ",
     desc: "เหมาะสำหรับทดลองทำภาพสินค้าชิ้นแรก",
   },
   {
     id: "topup-merchant",
     name: "Merchant Pack",
     price: "฿290",
-    credits: "350 เครดิต (+50 โบนัส)",
-    unitPrice: "ตกรูปละ ~0.82 บาท",
-    badge: "★ ขายดีสุด",
+    credits: "350 เครดิต",
     desc: "สำหรับร้านค้าออนไลน์ ถ่ายสินค้า 5-10 ชิ้น",
   },
   {
     id: "topup-pro",
     name: "Pro Studio Pack",
     price: "฿590",
-    credits: "800 เครดิต (+150 โบนัส)",
-    unitPrice: "ตกรูปละ ~0.73 บาท",
-    badge: "สุดคุ้ม",
+    credits: "800 เครดิต",
     desc: "สำหรับสตูดิโอและแบรนด์ ทำคอนเทนต์ประจำเดือน",
   },
   {
     id: "topup-agency",
     name: "Agency Pack",
     price: "฿1,490",
-    credits: "2,500 เครดิต (+500 โบนัส)",
-    unitPrice: "ตกรูปละ ~0.59 บาท",
-    badge: "ประหยัด 40%",
+    credits: "2,500 เครดิต",
     desc: "สำหรับเอเจนซี่ ยิงแอดทุกแพลตฟอร์ม",
   },
 ];
@@ -153,23 +140,25 @@ export default function PromotionsClient({
           </div>
 
           <div className="grid gap-6 md:grid-cols-2">
-            {PROMO_PLANS.map((plan) => {
-              const isCurrent = currentPlan === plan.id;
+            {PROMO_PLANS.map((promo) => {
+              const plan = planById(promo.id);
+              const isCurrent = currentPlan === promo.id;
+              const productImages = Math.floor(plan.monthlyCredits / TOOL_CREDIT_COST.product);
 
               return (
                 <div
-                  key={plan.id}
+                  key={promo.id}
                   className={`flex flex-col justify-between border p-6 md:p-8 transition-all ${
-                    plan.highlight
+                    promo.highlight
                       ? "border-2 border-accent bg-surface-alt shadow-sm"
                       : "border-ink bg-panel"
                   }`}
                 >
                   <div>
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono text-xs font-bold text-accent">{plan.badge}</span>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-mono text-xs font-bold text-accent">{promo.badge}</span>
                       {isCurrent && (
-                        <span className="border border-line bg-paper px-2 py-0.5 font-mono text-[10px] font-bold">
+                        <span className="shrink-0 border border-line bg-paper px-2 py-0.5 font-mono text-[10px] font-bold">
                           CURRENT PLAN
                         </span>
                       )}
@@ -177,17 +166,14 @@ export default function PromotionsClient({
 
                     <h4 className="mt-3 text-2xl font-bold">{plan.name}</h4>
 
-                    <div className="mt-4 flex items-baseline gap-3">
-                      <span className="text-4xl font-extrabold text-ink">{plan.promoPrice}</span>
-                      <span className="font-mono text-sm text-muted">{plan.period}</span>
-                    </div>
+                    <p className="mt-4 text-4xl font-extrabold text-ink">{plan.monthlyPriceLabel}</p>
 
                     <p className="mt-2 font-mono text-xs font-semibold text-accent">
-                      รับ {plan.credits.toLocaleString()} เครดิต / เดือน
+                      {plan.monthlyCredits.toLocaleString()} เครดิต / เดือน · ประมาณ {productImages} ภาพสินค้า
                     </p>
 
                     <ul className="mt-6 space-y-3 border-t border-line-soft pt-5 text-xs text-muted">
-                      {plan.features.map((feat) => (
+                      {promo.features.map((feat) => (
                         <li key={feat} className="flex items-center gap-2">
                           <span className="font-bold text-accent">✓</span>
                           <span>{feat}</span>
@@ -209,10 +195,10 @@ export default function PromotionsClient({
                       <button
                         type="button"
                         disabled={loadingPlan !== null}
-                        onClick={() => handleCheckout(plan.id)}
+                        onClick={() => handleCheckout(promo.id)}
                         className={`btn-primary w-full text-xs font-mono uppercase tracking-wider ${focus}`}
                       >
-                        {loadingPlan === plan.id
+                        {loadingPlan === promo.id
                           ? "กำลังเปิด STRIPE..."
                           : `GET ${plan.name.toUpperCase()} ↗`}
                       </button>
@@ -229,10 +215,13 @@ export default function PromotionsClient({
           <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
             <div>
               <p className="micro">02 / TOP-UP PACKS</p>
-              <h3 className="mt-1 text-xl font-bold">แพ็กเกจเติมเครดิตแบบไม่หมดอายุ</h3>
-              <p className="mt-1 text-xs text-muted">ซื้อครั้งเดียว เครดิตสะสมได้ ไม่มีวันหมดอายุ</p>
+              <h3 className="mt-1 flex flex-wrap items-center gap-3 text-xl font-bold">
+                แพ็กเกจเติมเครดิตแบบซื้อครั้งเดียว
+                <span className="badge badge-accent">เร็วๆ นี้</span>
+              </h3>
+              <p className="mt-1 text-xs text-muted">ยังเปิดให้ซื้อไม่ได้ ตอนนี้เติมเครดิตได้ผ่านแพ็กเกจรายเดือนด้านบน</p>
             </div>
-            <span className="font-mono text-xs text-muted">PAY AS YOU GO</span>
+            <span className="font-mono text-xs text-muted">COMING SOON</span>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -242,26 +231,20 @@ export default function PromotionsClient({
                 className="flex flex-col justify-between border border-line bg-panel p-5 transition-all hover:border-ink"
               >
                 <div>
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-[10px] uppercase text-accent font-bold">
-                      {bundle.badge}
-                    </span>
-                  </div>
-
-                  <h4 className="mt-2 text-lg font-bold">{bundle.name}</h4>
+                  <h4 className="text-lg font-bold">{bundle.name}</h4>
                   <p className="mt-3 text-2xl font-extrabold">{bundle.price}</p>
                   <p className="mt-1 font-mono text-xs font-semibold text-ink">{bundle.credits}</p>
-                  <p className="mt-1 font-mono text-[11px] text-muted">{bundle.unitPrice}</p>
                   <p className="mt-3 text-xs leading-5 text-muted-soft">{bundle.desc}</p>
                 </div>
 
                 <div className="mt-6 border-t border-line-soft pt-4">
-                  <a
-                    href="/account"
-                    className={`btn-outline block w-full text-center text-[11px] font-mono uppercase tracking-wider ${focus}`}
+                  <button
+                    type="button"
+                    disabled
+                    className="btn-outline w-full text-center text-[11px] font-mono uppercase tracking-wider"
                   >
-                    ดูรายละเอียดที่บัญชี ↗
-                  </a>
+                    ยังไม่เปิดขาย
+                  </button>
                 </div>
               </div>
             ))}
@@ -288,7 +271,7 @@ export default function PromotionsClient({
             </div>
             <div className="border border-line p-5">
               <span className="micro text-accent">03 / COMMERCIAL LICENSE</span>
-              <h4 className="mt-2 text-base font-bold">สิทธิ์การค้า 100% ไร้ลายน้ำ</h4>
+              <h4 className="mt-2 text-base font-bold">ใช้เพื่อการค้าได้เต็มที่</h4>
               <p className="mt-2 text-xs leading-5 text-muted">
                 นำภาพไปยิงแอด ทำโฆษณาใน Shopee, Lazada, TikTok และ Facebook ได้อย่างถูกลิขสิทธิ์
               </p>

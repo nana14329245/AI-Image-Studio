@@ -94,12 +94,39 @@ input::placeholder, textarea::placeholder { color: var(--muted-soft); }
 .nav-item:hover { background:var(--panel); color:var(--ink); }
 .nav-item.active { color:var(--paper); background:var(--ink); border-left-color:var(--accent); }
 
-.mobile-bar { display:none; }
+.mobile-bar, .mobile-menu-button, .mobile-credits, .drawer-backdrop, .drawer-panel { display:none; }
 
 @media (max-width: 900px) {
   .studio-sidebar { display:none; }
   .studio-main { margin-left:0; width:100%; padding-top:58px; }
   .mobile-bar { display:flex; position:fixed; z-index:40; inset:0 0 auto 0; height:58px; align-items:center; justify-content:space-between; padding:0 16px; border-bottom:1px solid var(--ink); background:var(--paper); }
+
+  .mobile-credits {
+    display:inline-flex; align-items:center; justify-content:center; min-width:38px; min-height:32px; padding:0 9px;
+    border:1px solid var(--line); background:var(--panel); color:var(--ink);
+    font-family:"Courier New",monospace; font-size:12px; text-decoration:none;
+  }
+  .mobile-credits.low { border-color:var(--accent); color:var(--accent); }
+
+  .mobile-menu-button {
+    display:flex; align-items:center; justify-content:center; height:44px; width:44px; margin-right:-10px;
+    border:1px solid var(--line); background:transparent; color:var(--ink); font-size:15px;
+  }
+  .mobile-menu-button:hover { background:var(--surface-hover); }
+
+  .drawer-backdrop { display:block; position:fixed; z-index:45; inset:0; background:color-mix(in srgb, var(--ink) 45%, transparent); }
+
+  /* Kept mounted so the open/close transition runs; visibility:hidden also keeps
+     its links out of the tab order while closed. */
+  .drawer-panel {
+    display:flex; flex-direction:column; position:fixed; z-index:50; inset:58px 0 0 auto; width:min(300px, 86vw);
+    border-left:1px solid var(--ink); background:var(--paper);
+    transform:translateX(100%); visibility:hidden;
+    /* visibility flips instantly when opening so the panel can take focus, and is
+       held until after the slide-out finishes when closing. */
+    transition:transform .18s ease, visibility 0s linear .18s;
+  }
+  .drawer-panel.open { transform:translateX(0); visibility:visible; transition:transform .18s ease, visibility 0s linear 0s; }
 }
 
 .card-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
@@ -163,6 +190,7 @@ input::placeholder, textarea::placeholder { color: var(--muted-soft); }
 
 @media (prefers-reduced-motion: reduce) {
   .tool-card { transition:none; } .tool-card:hover { transform:none; }
+  .drawer-panel { transition:none; }
   .spinner { animation:none; }
   body { transition:none; }
 }

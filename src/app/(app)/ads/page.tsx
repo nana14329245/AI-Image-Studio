@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import { GenerationProgress, useGenerationProgress } from "@/components/GenerationProgress";
+import { TOOL_CREDIT_COST } from "@/lib/plans";
 
 const platforms = ["Facebook", "Instagram", "Shopee", "Lazada", "TikTok"];
 const formats = ["1:1", "4:5", "16:9", "9:16"];
@@ -99,7 +100,8 @@ export default function AdsPage() {
             <p className="micro mb-3">03 / FORMAT</p>
             <div className="grid grid-cols-4 gap-2">{formats.map(item => <button key={item} type="button" disabled={busy} onClick={() => setFormat(item)} className={`option text-center ${format === item ? "selected" : ""} ${focus}`}>{item}</button>)}</div>
           </div>
-          <button type="button" disabled={!imageUrl || busy} onClick={generate} className={`btn-primary mt-7 flex w-full items-center justify-between ${focus}`}><span>{busy ? `GENERATING ${progress}%` : "GENERATE AD  ↗"}</span>{busy && <span className="size-5 animate-spin rounded-full border-2 border-black/20 border-t-black" />}</button>
+          <button type="button" disabled={!imageUrl || busy} onClick={generate} className={`btn-primary mt-7 flex w-full items-center justify-between ${focus}`}><span>{busy ? `กำลังสร้างภาพโฆษณา ${progress}%` : "สร้างภาพโฆษณา  ↗"}</span>{busy && <span className="size-5 animate-spin rounded-full border-2 border-black/20 border-t-black" />}</button>
+          <p className="mt-3 text-center font-mono text-xs text-muted">ใช้ {TOOL_CREDIT_COST.ads} เครดิตต่อครั้ง</p>
         </div>
         <div className="min-w-0 p-6">
           <div className="mb-5 flex items-center justify-between"><span className="micro">04 / GENERATED CREATIVE</span><span className="font-mono text-xs">{platform} / {format}</span></div>

@@ -24,7 +24,7 @@ export const PLANS: PlanDef[] = [
     name: "Free",
     monthlyPriceLabel: "฿0",
     monthlyCredits: 20,
-    features: ["20 เครดิตต่อเดือน", "เครื่องมือทั้งหมด", "Rate limit มาตรฐาน"],
+    features: ["20 เครดิตต่อเดือน", "ใช้ได้ครบทุกเครื่องมือ", "สร้างภาพได้ประมาณ 3 ภาพสินค้า"],
   },
   {
     id: "pro",
@@ -32,7 +32,7 @@ export const PLANS: PlanDef[] = [
     monthlyPriceLabel: "฿299/เดือน",
     monthlyCredits: 500,
     stripePriceEnvVar: "STRIPE_PRICE_PRO",
-    features: ["500 เครดิตต่อเดือน", "คิวประมวลผลเร็วขึ้น", "Rate limit สูงขึ้น"],
+    features: ["500 เครดิตต่อเดือน", "สร้างภาพได้ประมาณ 83 ภาพสินค้า", "คิวประมวลผลเร็วขึ้น"],
   },
   {
     id: "business",
@@ -40,7 +40,7 @@ export const PLANS: PlanDef[] = [
     monthlyPriceLabel: "฿999/เดือน",
     monthlyCredits: 2000,
     stripePriceEnvVar: "STRIPE_PRICE_BUSINESS",
-    features: ["2,000 เครดิตต่อเดือน", "Rate limit สูงสุด", "รองรับทีม (เร็วๆ นี้)"],
+    features: ["2,000 เครดิตต่อเดือน", "สร้างภาพได้ประมาณ 333 ภาพสินค้า", "สร้างภาพต่อเนื่องได้ถี่ที่สุด"],
   },
 ];
 

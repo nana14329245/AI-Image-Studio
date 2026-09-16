@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import { GenerationProgress, useGenerationProgress } from "@/components/GenerationProgress";
+import { TOOL_CREDIT_COST } from "@/lib/plans";
 
 const careers = ["Office", "IT", "Banking", "Hotel", "Sales", "Student"];
 const backgrounds = ["White", "Gray", "Blue", "Office"];
@@ -148,8 +149,9 @@ export default function PortraitPage() {
               </div>
             </div>
             <button type="button" disabled={!imageUrl || isGenerating} onClick={() => void generatePortrait()} className="btn-primary mt-8 w-full disabled:cursor-not-allowed disabled:opacity-50">
-              {isGenerating ? `CREATING PORTRAIT ${progress}%` : "CREATE PROFESSIONAL PHOTO  ↗"}
+              {isGenerating ? `กำลังสร้างภาพ ${progress}%` : "สร้างภาพโปรไฟล์  ↗"}
             </button>
+            <p className="mt-3 text-center font-mono text-xs text-muted">ใช้ {TOOL_CREDIT_COST.portrait} เครดิตต่อครั้ง</p>
             {creditsRemaining !== null && <p className="mt-3 text-center font-mono text-xs text-muted">CREDITS REMAINING: {creditsRemaining}</p>}
           </div>
           <div className="p-6">

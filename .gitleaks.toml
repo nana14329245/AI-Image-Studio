@@ -1,0 +1,36 @@
+# Gitleaks configuration.
+#
+# Starts from the full default ruleset and only subtracts values that cannot be
+# secrets. Nothing here weakens scanning of the two credentials that actually
+# matter — SUPABASE_SERVICE_ROLE_KEY and FAL_KEY.
+
+[extend]
+useDefault = true
+
+# The default ruleset covers the Supabase service-role JWT and Stripe keys, but
+# has no rule for fal.ai credentials — which are one of the two keys this repo
+# leaked. Their format is a UUID and a 32-character hex secret joined by a colon
+# (69 characters in total). No keywords, so it matches wherever it appears.
+[[rules]]
+id = "fal-ai-key"
+description = "fal.ai API key"
+regex = '''[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}:[0-9a-fA-F]{32}'''
+
+[[allowlists]]
+description = """
+Supabase publishable and anon keys. Both are read through NEXT_PUBLIC_ variables
+and are inlined into the browser bundle by design, so they are public values
+rather than secrets. getSupabaseConfig() rejects an sb_secret_ key in that slot,
+and that prefix is deliberately not allowlisted here.
+"""
+regexes = [
+  '''sb_publishable_[A-Za-z0-9_-]+''',
+]
+
+[[allowlists]]
+description = "Obvious placeholders in unit tests and CI configuration."
+regexes = [
+  '''(?i)placeholder''',
+  '''legacy_anon''',
+  '''do_not_ship''',
+]

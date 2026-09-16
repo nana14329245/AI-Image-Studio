@@ -61,7 +61,10 @@ function LoginForm() {
             <input type="email" required autoComplete="email" className="form-field mt-2" value={email} onChange={(e) => setEmail(e.target.value)} />
           </label>
           <label className="text-sm">
-            รหัสผ่าน
+            <span className="flex items-baseline justify-between gap-3">
+              รหัสผ่าน
+              <Link href="/forgot-password" className="text-xs text-muted underline underline-offset-4 hover:text-ink control-focus">ลืมรหัสผ่าน?</Link>
+            </span>
             <input type="password" required autoComplete="current-password" className="form-field mt-2" value={password} onChange={(e) => setPassword(e.target.value)} />
           </label>
           <button type="submit" disabled={loading !== null} className="btn-primary mt-2 flex items-center justify-center gap-2">

@@ -1,78 +1,108 @@
-# UP / SCALE
+# AI Image Studio
 
-Swiss-inspired image upscaler using Next.js App Router, React, TypeScript/TSX and Tailwind CSS utility classes.
+A credit-based SaaS that turns a single phone photo of a product into marketplace-ready images — built for Thai online sellers listing on Shopee, Lazada and TikTok Shop.
 
-## Run
+[![CI](https://github.com/nana14329245/AI-Image-Studio/actions/workflows/ci.yml/badge.svg)](https://github.com/nana14329245/AI-Image-Studio/actions/workflows/ci.yml)
 
-1. Install Node.js 20.9 or newer.
-2. Run `npm ci`.
-3. Copy `.env.example` to `.env.local`. Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (or `NEXT_PUBLIC_SUPABASE_ANON_KEY`). Complete the Supabase database setup below. For image processing, also set `SUPABASE_SERVICE_ROLE_KEY` and `FAL_KEY`.
-4. Run `npm run dev`, then open the Local URL printed in the terminal (the port may be 3001).
+Next.js 16 · React 19 · TypeScript · Supabase · Stripe · fal.ai
 
-Production: `npm run build`, then `npm start`.
+![Landing page](docs/screenshots/landing.png)
 
-## Features
+> The product UI is in Thai, because its users are. This README is in English.
 
-- Responsive grid layout, black/white palette and orange accent.
-- File picker and drag-and-drop for JPG, PNG and WebP up to 4 MB; direct HTTPS image URLs.
-- Preview with a 16-megapixel input limit on the client.
-- 2× enlargement through fal.ai Clarity Upscaler (`fal-ai/clarity-upscaler`) and 4× enlargement through Topaz (`fal-ai/topaz/upscale/image`). Supports two enhancement styles: **Natural (High Fidelity V2)** for faithful preservation, and **Vivid & Sharp (Standard V2)** for enhanced color grading, vibrance, and crisp details.
-- Product Studio, Ad Studio, and Professional Photo generate one image per request with FLUX Kontext (`fal-ai/flux-pro/kontext`), using the selected styles, backgrounds, platforms, and sizes.
-- Ad Studio keeps headline, benefit, and CTA copy outside the generated image so text stays accurate and editable.
-- Original/result switch, real fal.ai queue status progress, error states, download and open-image fallback.
-- Complete Account & Subscription workspace (`/account`) with real-time profile editing, subscription management (Free, Pro, Business via Stripe Checkout & Billing Portal), and credit transaction ledger history.
-- Styling lives primarily in JSX; one small global CSS file.
+## What it does
 
-## Notes
+One upload, one credit balance, four tools:
 
-Images are sent to fal.ai when processing starts. API usage may incur charges. Set the server-only `FAL_KEY` in `.env.local`; never expose it through a `NEXT_PUBLIC_` variable. No credentials are included in this source archive.
+| Tool | What it produces | Cost |
+|---|---|---|
+| **4K Upscale** | 2× (Clarity) or 4× (Topaz) enlargement | 4 credits |
+| **Product Studio** | 4 commercial angles from one product photo | 6 credits |
+| **Ad Studio** | Ad creative in multiple aspect ratios | 8 credits |
+| **Professional Photo** | Portrait cleaned up for CVs and profiles | 6 credits |
 
-Successful generations are copied from fal.ai to the project's Supabase Storage bucket before credits are deducted. `/gallery` shows the signed-in user's completed generation history, and result downloads use an authenticated application route so browsers save the file instead of opening the provider URL. Image tools submit fal.ai queue jobs and poll the application status route; the displayed percentage represents the confirmed queue/generation/save stage, not an estimated timer.
-Set the `generations` bucket's maximum file size to 50 MB by applying every migration in `supabase/migrations/`, including `0003_increase_generation_storage_limit.sql`. In Supabase Dashboard → Storage Settings, ensure the project-wide file size limit is also at least 50 MB.
+**Brand Kit** stores a logo and brand colours once and reuses them across every generation — the logo is composited onto the output, and the colours are fed to the model as a mood hint rather than as rendered text.
 
-Live AI processing requires a valid token, service credit and model access. A production deployment should provide authentication, rate limits and platform-level request limits before exposing the paid endpoint publicly. Configure enough server execution time for model processing. Remote image downloads depend on the provider's CORS headers; the open-image link is available as a fallback.
+New accounts get 20 credits. Paid plans are ฿299/month (500 credits) and ฿999/month (2,000 credits) via Stripe.
 
-This project preserves the original Next.js dependencies and lockfile. The archive excludes node_modules, build caches, Git history and local secrets.
+<p align="center">
+  <img src="docs/screenshots/landing-mobile.png" width="300" alt="Landing page on mobile">
+  <img src="docs/screenshots/login.png" width="430" alt="Login screen">
+</p>
 
-## Setup (Auth, Database, Credits, Subscriptions, Rate limiting) — in progress
+## Architecture notes
 
-This pass wires real infrastructure on top of the original UI.
+The parts worth reading, and why they are the way they are:
 
-### 1. Supabase
-1. Create a project at supabase.com, then copy `.env.example` to `.env.local` and fill in `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (Project Settings → API).
-2. Run every migration in `supabase/migrations/` against your project in filename order (SQL Editor, or `supabase db push` if you use the CLI). They create `profiles`, `credit_ledger`, `generations`, `rate_limit_events`, the `spend_credits` / `grant_credits` / `check_rate_limit` RPCs, RLS policies, and a public `generations` storage bucket.
-3. Auth → Providers → enable **Email** and **Google** (add your Google OAuth client ID/secret from the Google Cloud Console; set the Supabase-provided redirect URL in Google's console).
-4. Auth → URL Configuration → add your site URL and `/auth/callback` to the allowed redirect URLs.
+**Credits are only spent on delivered work.** A generation is recorded before the provider is called, but credits are deducted only after the result has been fetched from fal.ai *and* written to Supabase Storage. A failed or lost generation costs the user nothing.
 
-### 2. Stripe
-1. Create two recurring Prices (Pro, Business) in the Stripe Dashboard → Product catalog, and put their IDs in `STRIPE_PRICE_PRO` / `STRIPE_PRICE_BUSINESS`.
-2. Set `STRIPE_SECRET_KEY` from the Dashboard.
-3. Create a webhook endpoint pointing at `https://your-domain/api/webhooks/stripe` listening for `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`; copy its signing secret into `STRIPE_WEBHOOK_SECRET`. For local testing use `stripe listen --forward-to localhost:3000/api/webhooks/stripe`.
+**Credit movements are idempotent.** `spend_credits` and `grant_credits` are Postgres functions, not application code, so concurrent requests cannot interleave into a double-spend. Subscription renewals are keyed on the Stripe event so a redelivered webhook cannot grant the same month's credits twice — see migrations `0005` and `0006`, both of which exist because the naive version was wrong.
 
-### 3. What's already wired
-- Login/Signup (`/login`, `/signup`) — email/password + Google OAuth, via Supabase Auth. `src/proxy.ts` (Next's current name for middleware) refreshes sessions and redirects signed-out users.
-- New users get a `profiles` row with 20 free credits automatically (DB trigger).
-- `/api/upscale` now requires login, checks a sliding-window rate limit, submits a fal.ai queue job, and logs every job to `generations` (the real gallery table).
-- `/api/product`, `/api/ads`, and `/api/portrait` follow the same authenticated, rate-limited, queued generation-record flow. `/api/generations/[id]/status` is owner-scoped and finalizes output storage and credits exactly once, including recovery after an interrupted save. Product and portrait generation cost 6 credits; ads generation costs 8 credits.
-- `/api/billing/checkout` and `/api/billing/portal` create real Stripe Checkout / Billing Portal sessions; `/api/webhooks/stripe` keeps `profiles.plan`, `subscription_status` and monthly credit grants in sync.
-- Dark mode is a real theme, not a mock toggle — colors are design tokens (`--color-ink`, `--color-paper`, etc. in `globals.css`), switchable via the toggle in the sidebar and persisted in a `theme` cookie.
+**Generation survives an interrupted save.** Jobs are submitted to the fal.ai queue and polled through `/api/generations/[id]/status`, which is owner-scoped. A row stuck in `finalizing` for more than 90 seconds is reclaimed and retried, so a server restart mid-save does not strand the job or the credits.
 
-### 4. Notes
-- Credits are deducted only after a completed provider result is stored successfully.
+**Two rate limits, one check.** `check_rate_limit` enforces a sliding window per user *and* per IP in a single round trip. It fails open on a database error — a limiter outage should not take generation down — but surfaces the error so it still gets logged.
 
-## แก้ปัญหา Supabase URL / Key
+**Secrets stay server-side.** The Supabase service-role key and `FAL_KEY` are only ever read in route handlers. `getSupabaseConfig` refuses to start the app if a secret key is found in a `NEXT_PUBLIC_` variable, since those are inlined into the client bundle.
 
-- ไฟล์ `.env.local` ต้องอยู่ข้าง `package.json` ไม่ใช่ใน `src` และไม่ใช่ `.env.local.txt`
-- คัดลอก `.env.example` เป็น `.env.local` เฉพาะเมื่อยังไม่มีไฟล์เดิม เพื่อไม่ทับคีย์ที่ตั้งไว้แล้ว
-- ใส่ Project URL และ Publishable key ของโปรเจกต์จริง หรือใช้ชื่อ `NEXT_PUBLIC_SUPABASE_ANON_KEY` สำหรับ anon key
-- ถ้ากรอกทั้งสองคีย์ แอปจะเลือก Publishable key ก่อน
-- ห้ามใส่ Secret key หรือ service_role ในตัวแปร `NEXT_PUBLIC_`
-- หยุดเซิร์ฟเวอร์ด้วย Control + C แล้วรัน `npm run dev` ใหม่หลังแก้ค่า
-- ถ้าค่ายังไม่ครบ หน้าเว็บจะไป `/setup` และ API จะตอบ 503 โดยไม่ข้ามการล็อกอิน
-- หน้า setup ตรวจรูปแบบเบื้องต้นเท่านั้น คีย์ต้องเป็นของโปรเจกต์จริงจึงจะล็อกอินได้
-- ZIP นี้ไม่มีคีย์จริง จึงต้องใส่ค่าของคุณก่อนใช้งานระบบบัญชีและสร้างภาพ
+## Running locally
 
-Implementation references: https://nextjs.org/docs/app/api-reference/file-conventions/proxy
-and https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack
-# AI-Image-Studio
-# AI-Image-Studio
+Requires Node.js 20.9+.
+
+```bash
+npm ci
+cp .env.example .env.local   # only if you don't have one yet
+npm run dev
+```
+
+Fill in `.env.local`:
+
+| Variable | Needed for |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | everything |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | everything |
+| `SUPABASE_SERVICE_ROLE_KEY` | image processing, webhooks |
+| `FAL_KEY` | image generation |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | billing |
+| `STRIPE_PRICE_PRO`, `STRIPE_PRICE_BUSINESS` | billing |
+
+Without a valid Supabase URL and key the app redirects to `/setup` and the API returns 503 rather than silently skipping auth.
+
+Setup problems are collected in [docs/troubleshooting-th.md](docs/troubleshooting-th.md) (Thai).
+
+### Supabase
+
+1. Apply every migration in `supabase/migrations/` in filename order (SQL editor, or `supabase db push`). They create `profiles`, `credit_ledger`, `generations`, `rate_limit_events`, the `spend_credits` / `grant_credits` / `check_rate_limit` functions, the RLS policies, and the `generations` storage bucket.
+2. Auth → Providers: enable Email and Google.
+3. Auth → URL Configuration: add your site URL and `/auth/callback`.
+4. Storage: raise the `generations` bucket limit to 50 MB (migration `0003` does this; the project-wide limit must also allow it).
+
+### Stripe
+
+1. Create recurring prices for Pro and Business; put the IDs in `STRIPE_PRICE_PRO` / `STRIPE_PRICE_BUSINESS`.
+2. Point a webhook at `/api/webhooks/stripe` for `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted` and `invoice.paid`.
+3. Locally: `stripe listen --forward-to localhost:3000/api/webhooks/stripe`.
+
+## Development
+
+```bash
+npm run lint        # eslint
+npm run typecheck   # tsc --noEmit
+npm test            # vitest
+npm run build       # production build
+```
+
+CI runs all four on every pull request, plus a secret scan on new commits.
+
+Tests cover the logic where a mistake costs money or leaks something: Stripe price → plan mapping, upload data-URL validation, provider response parsing, client-IP extraction for rate limiting, and the config guard that keeps secret keys out of the client bundle.
+
+## Status
+
+Working: auth, credits, billing, all four tools, gallery, brand kit, dark mode.
+
+Known gaps, roughly in priority order:
+
+- No mobile navigation — the sidebar is hidden below 900px with nothing replacing it, so Account, Promotions and Brand Kit are unreachable on a phone
+- Marketplace-spec export (Shopee / Lazada / TikTok Shop dimensions)
+- Batch upload
+- Tool UI is inconsistently localised — Upscale is fully Thai, Product and Ad Studio are not
+- Brand Kit accepts JPG logos, which composite as an opaque rectangle; it should require a transparent PNG
