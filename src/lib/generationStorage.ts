@@ -31,3 +31,24 @@ export function ownedGenerationPaths(
   }
   return [...owned];
 }
+
+const BRAND_LOGO_FILE = /^logo\.(?:png|webp)$/;
+
+/**
+ * The profile's brand logo path, or null unless it is exactly the file the brand
+ * kit route writes: `{userId}/brand-kit/logo.png` or `.webp`. The logo is read
+ * with the service role, so a path pointing into another user's folder would
+ * otherwise stamp their logo onto this user's images.
+ */
+export function ownedBrandLogoPath(userId: string, path: unknown): string | null {
+  if (typeof path !== "string") return null;
+  const parts = path.split("/");
+  if (parts.length !== 3) return null;
+  const [owner, folder, file] = parts;
+  return owner === userId && folder === "brand-kit" && BRAND_LOGO_FILE.test(file) ? path : null;
+}
+
+/** Every file the brand kit route may have written for a user, for replacing or removing the logo. */
+export function brandLogoPaths(userId: string): string[] {
+  return [`${userId}/brand-kit/logo.png`, `${userId}/brand-kit/logo.webp`];
+}

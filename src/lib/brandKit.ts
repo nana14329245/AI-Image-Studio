@@ -1,8 +1,10 @@
 import type { createClient } from "@/lib/supabase/server";
-import { createServiceRoleClient } from "@/lib/supabase/server";
+import { ownedBrandLogoPath } from "@/lib/generationStorage";
+import { generationsBucket } from "@/lib/signedUrls";
 
 export type BrandKit = {
-  logoUrl: string | null;
+  /** Storage path of the logo in the private bucket; sign it before showing it. */
+  logoPath: string | null;
   primaryColor: string | null;
   secondaryColor: string | null;
 };
@@ -22,13 +24,8 @@ export async function getBrandKit(supabase: SupabaseServerClient, userId: string
     .eq("id", userId)
     .single();
 
-  const logoPath = data?.brand_logo_path ?? null;
-  const logoUrl = logoPath
-    ? createServiceRoleClient().storage.from("generations").getPublicUrl(logoPath).data.publicUrl
-    : null;
-
   return {
-    logoUrl,
+    logoPath: ownedBrandLogoPath(userId, data?.brand_logo_path),
     primaryColor: data?.brand_primary_color ?? null,
     secondaryColor: data?.brand_secondary_color ?? null,
   };
@@ -56,21 +53,26 @@ export async function logoHasTransparency(image: Blob): Promise<boolean> {
   return !isOpaque;
 }
 
+/** Reads the logo from the private bucket. */
+export async function downloadBrandLogo(logoPath: string): Promise<Blob> {
+  const { data, error } = await generationsBucket().download(logoPath);
+  if (error || !data) throw error ?? new Error("Unable to read brand logo");
+  return data;
+}
+
 /**
- * Composites `logoUrl` onto the bottom-right corner of `image` (~3% padding,
+ * Composites `logo` onto the bottom-right corner of `image` (~3% padding,
  * logo resized to ~14% of the base image's width) and returns a PNG blob.
  * Throws on any failure — callers must catch and fall back to the original
  * un-overlaid image, never let this break generation.
  */
-export async function overlayBrandLogo(image: Blob, logoUrl: string): Promise<Blob> {
+export async function overlayBrandLogo(image: Blob, logo: Blob): Promise<Blob> {
   const sharp = (await import("sharp")).default;
 
-  const [baseBuffer, logoResponse] = await Promise.all([
+  const [baseBuffer, logoBuffer] = await Promise.all([
     image.arrayBuffer().then(buffer => Buffer.from(buffer)),
-    fetch(logoUrl),
+    logo.arrayBuffer().then(buffer => Buffer.from(buffer)),
   ]);
-  if (!logoResponse.ok) throw new Error("Unable to fetch brand logo");
-  const logoBuffer = Buffer.from(await logoResponse.arrayBuffer());
 
   const base = sharp(baseBuffer);
   const { width: baseWidth, height: baseHeight } = await base.metadata();

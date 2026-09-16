@@ -68,7 +68,7 @@ describe("logoHasTransparency", () => {
 });
 
 describe("brandColorPromptHint", () => {
-  const kit = { logoUrl: null, primaryColor: "#FF5733", secondaryColor: "#1A1A1A" };
+  const kit = { logoPath: null, primaryColor: "#FF5733", secondaryColor: "#1A1A1A" };
 
   it("mentions both colours when a secondary is set", () => {
     const hint = brandColorPromptHint(kit);
@@ -86,7 +86,7 @@ describe("brandColorPromptHint", () => {
 
   it("returns null when no primary colour is set, so no hint is appended", () => {
     expect(brandColorPromptHint({ ...kit, primaryColor: null })).toBeNull();
-    expect(brandColorPromptHint({ logoUrl: null, primaryColor: null, secondaryColor: "#1A1A1A" })).toBeNull();
+    expect(brandColorPromptHint({ logoPath: null, primaryColor: null, secondaryColor: "#1A1A1A" })).toBeNull();
   });
 
   it("tells the model to use the colour as mood, not as rendered text or a logo", () => {

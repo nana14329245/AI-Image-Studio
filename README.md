@@ -40,6 +40,8 @@ The parts worth reading, and why they are the way they are:
 
 **Credit movements are idempotent.** `spend_credits` and `grant_credits` are Postgres functions, not application code, so concurrent requests cannot interleave into a double-spend. Monthly grants are keyed on the Stripe invoice, so a redelivered webhook cannot grant the same month's credits twice, and they are capped at twice the plan allowance — see migrations `0005` and `0006`, both of which exist because the naive version was wrong.
 
+**Images are private.** The `generations` bucket is not public and has no end-user storage policies. Only server routes touch it, through the service role, after checking that each path is in the caller's own folder. The database stores paths, never URLs, and pages sign one-hour links when they render.
+
 **Generation survives an interrupted save.** Jobs are submitted to the fal.ai queue and polled through `/api/generations/[id]/status`, which is owner-scoped. A row stuck in `finalizing` for more than 90 seconds is reclaimed and retried, so a server restart mid-save does not strand the job or the credits.
 
 **Two rate limits, one check.** `check_rate_limit` enforces a sliding window per user *and* per IP in a single round trip. It fails open on a database error — a limiter outage should not take generation down — but surfaces the error so it still gets logged.
@@ -75,7 +77,7 @@ Setup problems are collected in [docs/troubleshooting-th.md](docs/troubleshootin
 
 ### Supabase
 
-1. Apply every migration in `supabase/migrations/` in filename order (SQL editor, or `supabase db push`). They create `profiles`, `credit_ledger`, `generations`, `rate_limit_events`, the `spend_credits` / `grant_credits` / `check_rate_limit` functions, the RLS policies, and the `generations` storage bucket.
+1. Apply every migration in `supabase/migrations/` in filename order (SQL editor, or `supabase db push`). They create `profiles`, `credit_ledger`, `generations`, `rate_limit_events`, the `spend_credits` / `grant_credits` / `check_rate_limit` functions, the RLS policies, and the private `generations` storage bucket.
 2. Auth → Providers: enable Email and Google.
 3. Auth → URL Configuration: add your site URL and `/auth/callback`.
 4. Storage: raise the `generations` bucket limit to 50 MB (migration `0003` does this; the project-wide limit must also allow it).
