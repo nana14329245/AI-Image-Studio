@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import ThemeToggle from "@/components/ThemeToggle";
 import { createClient } from "@/lib/supabase/client";
-import { PLANS, type PlanId } from "@/lib/plans";
+import { PLANS, SIGNUP_CREDITS, type PlanId } from "@/lib/plans";
 
 type ProfileData = {
   id: string;
@@ -243,7 +243,7 @@ export default function AccountClient({
                 <p className="micro text-muted">AVAILABLE CREDITS</p>
                 <p className="mt-2 text-4xl font-extrabold tracking-tight font-mono">{profile.credits}</p>
                 <p className="mt-1 text-xs text-muted">
-                  {profile.plan === "free" ? "แพ็กเกจฟรี 20 เครดิตแรกเข้า" : `สถานะ: ${profile.subscription_status}`}
+                  {profile.plan === "free" ? `แพ็กเกจฟรี ${SIGNUP_CREDITS} เครดิตแรกเข้า` : `สถานะ: ${profile.subscription_status}`}
                 </p>
               </div>
 

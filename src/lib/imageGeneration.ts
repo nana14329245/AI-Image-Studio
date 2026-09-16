@@ -1,8 +1,8 @@
 import { createFalClient } from "@fal-ai/client";
 import { NextRequest, NextResponse } from "next/server";
 import { getBrandKit, overlayBrandLogo } from "@/lib/brandKit";
-import { InsufficientCreditsError, spendCredits } from "@/lib/credits";
-import { TOOL_CREDIT_COST } from "@/lib/plans";
+import { InsufficientCreditsError, refundGenerationCredits, spendCredits } from "@/lib/credits";
+import { TOOL_CREDIT_COST, type FixedPriceTool } from "@/lib/plans";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
@@ -27,11 +27,25 @@ export async function toFalImageInput(imageUrl: string) {
   return response.blob();
 }
 
+/** A request problem whose message is safe to show the user; answered with 400. */
+export class GenerationInputError extends Error {}
+
+type ContextOptions = {
+  scale?: number;
+  /**
+   * For tools priced by their input. Runs only after sign-in and rate limiting have
+   * passed, so an anonymous or throttled caller cannot make the server process
+   * images. Throw GenerationInputError to reject the input with a message.
+   */
+  resolveCost?: () => Promise<number>;
+};
+
 export async function createGenerationContext(
   req: NextRequest,
   tool: GenerationContext["tool"],
-  scale?: number
+  options: ContextOptions = {}
 ): Promise<GenerationContext | NextResponse> {
+  const { scale, resolveCost } = options;
   const supabase = await createClient();
   const {
     data: { user },
@@ -47,7 +61,23 @@ export async function createGenerationContext(
     return NextResponse.json({ error: "ยังไม่ได้ตั้งค่า FAL_KEY บนเซิร์ฟเวอร์" }, { status: 503 });
   }
 
-  const cost = TOOL_CREDIT_COST[tool];
+  let cost: number;
+  if (resolveCost) {
+    try {
+      cost = await resolveCost();
+    } catch (costError) {
+      if (costError instanceof GenerationInputError) {
+        return NextResponse.json({ error: costError.message }, { status: 400 });
+      }
+      console.error("[createGenerationContext] could not price request", tool, costError);
+      return NextResponse.json({ error: "อ่านข้อมูลงานไม่สำเร็จ กรุณาลองใหม่" }, { status: 500 });
+    }
+  } else if (tool in TOOL_CREDIT_COST) {
+    cost = TOOL_CREDIT_COST[tool as FixedPriceTool];
+  } else {
+    throw new Error(`${tool} has no fixed price and needs resolveCost`);
+  }
+  if (!Number.isInteger(cost) || cost <= 0) throw new Error(`invalid credit cost for ${tool}: ${cost}`);
   const { data: profile } = await supabase.from("profiles").select("credits").eq("id", user.id).single();
   if (!profile || profile.credits < cost) {
     return NextResponse.json({ error: `เครดิตไม่พอ ต้องใช้ ${cost} เครดิตสำหรับการสร้างภาพนี้` }, { status: 402 });
@@ -61,6 +91,22 @@ export async function createGenerationContext(
   if (error || !generation) {
     return NextResponse.json({ error: "บันทึกงานไม่สำเร็จ กรุณาลองใหม่" }, { status: 500 });
   }
+
+  // Charged before anything is sent to fal.ai. spend_credits locks the profile row,
+  // so parallel submissions cannot all pass against a balance that covers one, and
+  // a job whose result is never polled is still paid for. Failures are refunded in
+  // failGeneration.
+  try {
+    await spendCredits(supabase, user.id, cost, tool, { generationId: generation.id });
+  } catch (spendError) {
+    await generationsTable().delete().eq("id", generation.id).eq("user_id", user.id);
+    if (spendError instanceof InsufficientCreditsError) {
+      return NextResponse.json({ error: `เครดิตไม่พอ ต้องใช้ ${cost} เครดิตสำหรับการสร้างภาพนี้` }, { status: 402 });
+    }
+    console.error("[createGenerationContext] credit charge failed", generation.id, spendError);
+    return NextResponse.json({ error: "หักเครดิตไม่สำเร็จ กรุณาลองใหม่" }, { status: 500 });
+  }
+  await generationsTable().update({ credits_spent: cost }).eq("id", generation.id).eq("user_id", user.id);
 
   return { generationId: generation.id, supabase, tool, userId: user.id };
 }
@@ -293,14 +339,9 @@ export async function completeGeneration(
     return { response: NextResponse.json({ error: "บริการไม่ส่งภาพผลลัพธ์กลับมา กรุณาลองใหม่" }, { status: 502 }) };
   }
 
-  const cost = TOOL_CREDIT_COST[context.tool];
   try {
     const logoUrl = context.tool !== "upscale" ? (await getBrandKit(context.supabase, context.userId)).logoUrl : null;
     const stored = await persistGeneratedImages(context.userId, context.generationId, results, logoUrl);
-    const remaining = await spendCredits(context.supabase, context.userId, cost, context.tool, {
-      generationId: context.generationId,
-      ...metadata,
-    });
     const updatedMetadata = {
       ...metadata,
       results: stored.urls,
@@ -311,18 +352,16 @@ export async function completeGeneration(
         status: "completed",
         output_path: stored.paths[0],
         output_url: stored.urls[0],
-        credits_spent: cost,
         generation_metadata: updatedMetadata,
       })
       .eq("id", context.generationId)
       .eq("user_id", context.userId);
     if (finalizeError) console.error("[completeGeneration] failed to mark completed", context.generationId, finalizeError);
+    const { data: profile } = await createServiceRoleClient()
+      .from("profiles").select("credits").eq("id", context.userId).single();
+    const remaining = profile?.credits ?? 0;
     return { remaining, result: stored.urls[0], results: stored.urls, generationId: context.generationId };
   } catch (error) {
-    if (error instanceof InsufficientCreditsError) {
-      await failGeneration(context, "insufficient_credits");
-      return { response: NextResponse.json({ error: "เครดิตไม่พอ กรุณาเติมเครดิตหรืออัปเกรดแพ็กเกจ" }, { status: 402 }) };
-    }
     if (error instanceof Error && error.message === "generated_image_too_large") {
       await failGeneration(context, "output_too_large");
       return { response: NextResponse.json({ error: "ภาพผลลัพธ์ใหญ่เกินขนาดที่ Supabase Storage รองรับ กรุณาเพิ่มขนาด bucket เป็น 50 MB แล้วลองใหม่" }, { status: 413 }) };
@@ -372,11 +411,22 @@ export async function persistGeneratedImage(userId: string, generationId: string
   return { path: paths[0], url: urls[0] };
 }
 
+/**
+ * Marks a generation failed and refunds its credits. The refund is idempotent,
+ * so this is safe on every failure path, including repeated ones.
+ */
 export async function failGeneration(context: GenerationContext, reason: string) {
   await generationsTable()
     .update({ status: "failed", error: reason })
     .eq("id", context.generationId)
     .eq("user_id", context.userId);
+  try {
+    await refundGenerationCredits(createServiceRoleClient(), context.generationId);
+  } catch (refundError) {
+    // Logged rather than thrown: the generation has already failed, and a refund
+    // that did not happen stays visible in credit_ledger for a manual correction.
+    console.error("[failGeneration] refund failed", context.generationId, refundError);
+  }
 }
 
 /**

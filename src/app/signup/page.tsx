@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { track } from "@/lib/analytics";
+import { SIGNUP_CREDITS } from "@/lib/plans";
 import { useState, type FormEvent } from "react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -59,7 +60,7 @@ export default function SignupPage() {
         <div className="auth-card text-center">
           <p className="micro mb-3 text-accent-dark">ยืนยันอีเมลของคุณ</p>
           <h1 className="mb-3 text-2xl font-semibold tracking-[-.05em]">ตรวจสอบกล่องอีเมลของคุณ</h1>
-          <p className="text-sm leading-6 text-muted">เราได้ส่งลิงก์ยืนยันไปที่ {email} แล้ว กดลิงก์ในอีเมลเพื่อเริ่มใช้งานพร้อมเครดิตฟรี 20 เครดิต</p>
+          <p className="text-sm leading-6 text-muted">เราได้ส่งลิงก์ยืนยันไปที่ {email} แล้ว กดลิงก์ในอีเมลเพื่อเริ่มใช้งานพร้อมเครดิตฟรี {SIGNUP_CREDITS} เครดิต</p>
           <Link href="/login" className="btn-outline mt-6 inline-flex">กลับไปหน้าเข้าสู่ระบบ</Link>
         </div>
       </div>
@@ -74,7 +75,7 @@ export default function SignupPage() {
         </Link>
         <p className="micro mt-4 mb-1 text-accent-dark">SIGNUP / 000</p>
         <h1 className="mb-1 text-3xl font-semibold tracking-[-.05em]">สร้างบัญชีใหม่</h1>
-        <p className="mb-6 text-sm text-muted">รับ 20 เครดิตฟรีทันทีที่สมัคร</p>
+        <p className="mb-6 text-sm text-muted">รับ {SIGNUP_CREDITS} เครดิตฟรีทันทีที่สมัคร</p>
 
         {error && <p className="status-line mb-5 text-sm">{error}</p>}
 

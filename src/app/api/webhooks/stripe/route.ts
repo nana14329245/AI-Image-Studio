@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
 import { createServiceRoleClient } from "@/lib/supabase/server";
-import { grantCredits } from "@/lib/credits";
-import { PLANS, planByStripePriceId } from "@/lib/plans";
+import { grantSubscriptionCredits } from "@/lib/credits";
+import { PLANS, creditCapForPlan, planByStripePriceId } from "@/lib/plans";
 
 export const runtime = "nodejs";
 
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
       const priceId = subscription.items.data[0]?.price?.id ?? null;
       const plan = planByStripePriceId(priceId);
       if (userId && plan) {
-        await grantCredits(supabase, userId, plan.monthlyCredits, "subscription_grant", {
+        await grantSubscriptionCredits(supabase, userId, plan.monthlyCredits, creditCapForPlan(plan), {
           subscriptionId: subscription.id,
           event: "checkout.session.completed",
           stripeEventId: event.id,
@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
       const priceId = subscription.items.data[0]?.price?.id ?? null;
       const plan = planByStripePriceId(priceId);
       if (userId && plan) {
-        await grantCredits(supabase, userId, plan.monthlyCredits, "subscription_grant", {
+        await grantSubscriptionCredits(supabase, userId, plan.monthlyCredits, creditCapForPlan(plan), {
           subscriptionId: subscription.id,
           event: "invoice.paid",
           stripeEventId: event.id,

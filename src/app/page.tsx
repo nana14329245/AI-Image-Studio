@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { PLANS } from "@/lib/plans";
+import { PLANS, SIGNUP_CREDITS } from "@/lib/plans";
 
 const TOOLS = [
   { href: "/upscale", title: "4K Upscale", text: "เพิ่มความละเอียด 2× หรือ 4× พร้อมรักษารายละเอียดของภาพ", symbol: "↗" },
@@ -50,7 +50,7 @@ export default async function LandingPage() {
             ขยายภาพ 4K, ถ่ายภาพสินค้า, สร้างโฆษณา และภาพโปรไฟล์มืออาชีพ — ครบในที่เดียว ด้วยเครดิตชุดเดียว ไม่ต้องสมัครหลายเครื่องมือแยกกัน
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <Link href="/signup" className="btn-primary flex items-center gap-2 px-8 text-sm control-focus">เริ่มต้นฟรี 20 เครดิต ↗</Link>
+            <Link href="/signup" className="btn-primary flex items-center gap-2 px-8 text-sm control-focus">เริ่มต้นฟรี {SIGNUP_CREDITS} เครดิต ↗</Link>
             <Link href="/login" className="btn-outline flex items-center px-8 text-sm control-focus">เข้าสู่ระบบ</Link>
           </div>
         </div>
@@ -150,7 +150,7 @@ export default async function LandingPage() {
 
       <section className="page-wrap py-20 text-center">
         <h2 className="text-3xl font-semibold tracking-[-.05em] sm:text-4xl">พร้อมเริ่มต้นหรือยัง<span className="text-accent">?</span></h2>
-        <p className="mt-3 text-sm text-muted-soft">สมัครวันนี้ รับ 20 เครดิตฟรีทันที ไม่ต้องผูกบัตร</p>
+        <p className="mt-3 text-sm text-muted-soft">สมัครวันนี้ รับ {SIGNUP_CREDITS} เครดิตฟรีทันที ไม่ต้องผูกบัตร</p>
         <Link href="/signup" className="btn-primary mt-6 inline-flex items-center gap-2 px-8 text-sm control-focus">สมัครฟรี ↗</Link>
       </section>
 
