@@ -2,7 +2,7 @@ import { createFalClient } from "@fal-ai/client";
 import { NextRequest, NextResponse } from "next/server";
 import { getBrandKit, overlayBrandLogo } from "@/lib/brandKit";
 import { InsufficientCreditsError, refundGenerationCredits, spendCredits } from "@/lib/credits";
-import { TOOL_CREDIT_COST } from "@/lib/plans";
+import { TOOL_CREDIT_COST, type FixedPriceTool } from "@/lib/plans";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
@@ -27,11 +27,25 @@ export async function toFalImageInput(imageUrl: string) {
   return response.blob();
 }
 
+/** A request problem whose message is safe to show the user; answered with 400. */
+export class GenerationInputError extends Error {}
+
+type ContextOptions = {
+  scale?: number;
+  /**
+   * For tools priced by their input. Runs only after sign-in and rate limiting have
+   * passed, so an anonymous or throttled caller cannot make the server process
+   * images. Throw GenerationInputError to reject the input with a message.
+   */
+  resolveCost?: () => Promise<number>;
+};
+
 export async function createGenerationContext(
   req: NextRequest,
   tool: GenerationContext["tool"],
-  scale?: number
+  options: ContextOptions = {}
 ): Promise<GenerationContext | NextResponse> {
+  const { scale, resolveCost } = options;
   const supabase = await createClient();
   const {
     data: { user },
@@ -47,7 +61,23 @@ export async function createGenerationContext(
     return NextResponse.json({ error: "ยังไม่ได้ตั้งค่า FAL_KEY บนเซิร์ฟเวอร์" }, { status: 503 });
   }
 
-  const cost = TOOL_CREDIT_COST[tool];
+  let cost: number;
+  if (resolveCost) {
+    try {
+      cost = await resolveCost();
+    } catch (costError) {
+      if (costError instanceof GenerationInputError) {
+        return NextResponse.json({ error: costError.message }, { status: 400 });
+      }
+      console.error("[createGenerationContext] could not price request", tool, costError);
+      return NextResponse.json({ error: "อ่านข้อมูลงานไม่สำเร็จ กรุณาลองใหม่" }, { status: 500 });
+    }
+  } else if (tool in TOOL_CREDIT_COST) {
+    cost = TOOL_CREDIT_COST[tool as FixedPriceTool];
+  } else {
+    throw new Error(`${tool} has no fixed price and needs resolveCost`);
+  }
+  if (!Number.isInteger(cost) || cost <= 0) throw new Error(`invalid credit cost for ${tool}: ${cost}`);
   const { data: profile } = await supabase.from("profiles").select("credits").eq("id", user.id).single();
   if (!profile || profile.credits < cost) {
     return NextResponse.json({ error: `เครดิตไม่พอ ต้องใช้ ${cost} เครดิตสำหรับการสร้างภาพนี้` }, { status: 402 });

@@ -1,16 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createGenerationContext, enqueueGeneration, failGeneration } from "@/lib/imageGeneration";
+import { prepareUpscaleSource, type PreparedUpscaleSource } from "@/lib/upscaleSource";
 
 export const maxDuration = 300;
-
-async function toFalImageInput(imageUrl: string, isFile: boolean) {
-  if (!isFile) return imageUrl;
-
-  const response = await fetch(imageUrl);
-  if (!response.ok) throw new Error("Unable to read uploaded image");
-
-  return response.blob();
-}
 
 export async function POST(req: NextRequest) {
   const body = await req.text();
@@ -22,44 +14,57 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "รูปแบบข้อมูลไม่ถูกต้อง" }, { status: 400 });
   }
   const { imageUrl, scale = 2, enhancement = "dehaze" } = input ?? {};
-  if (typeof imageUrl !== "string" || ![2, 4].includes(scale)) {
+  if (typeof imageUrl !== "string" || (scale !== 2 && scale !== 4)) {
     return NextResponse.json({ error: "กรุณาระบุภาพและเลือกขยาย 2× หรือ 4×" }, { status: 400 });
   }
   const isFile = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(imageUrl);
-  let isUrl = false;
-  try {
-    const url = new URL(imageUrl);
-    isUrl = url.protocol === "https:" && !url.username && !url.password;
-  } catch {
-    /* validated below */
+  if (!isFile && !imageUrl.startsWith("https://")) {
+    return NextResponse.json({ error: "กรุณาใช้ภาพ JPG, PNG, WebP หรือลิงก์ HTTPS" }, { status: 400 });
   }
-  if (!isFile && !isUrl) return NextResponse.json({ error: "กรุณาใช้ภาพ JPG, PNG, WebP หรือลิงก์ HTTPS" }, { status: 400 });
-  const context = await createGenerationContext(req, "upscale", scale);
+
+  // The price depends on the image's size, so the source is loaded and shrunk
+  // before charging — but only after sign-in and rate limiting have passed.
+  let prepared: PreparedUpscaleSource | undefined;
+  const context = await createGenerationContext(req, "upscale", {
+    scale,
+    resolveCost: async () => {
+      prepared = await prepareUpscaleSource(imageUrl, scale);
+      return prepared.plan.credits;
+    },
+  });
   if (context instanceof NextResponse) return context;
+  if (!prepared) throw new Error("upscale source was not prepared");
 
   try {
-    const image = await toFalImageInput(imageUrl, isFile);
     const isDehaze = enhancement === "dehaze" || enhancement === "fidelity";
-    const endpoint = scale === 2 ? "fal-ai/clarity-upscaler" : "fal-ai/topaz/upscale/image";
-    const queueInput = scale === 2
-      ? { image_url: image, upscale_factor: 2 }
-      : {
-          image_url: image,
-          upscale_factor: 4,
-          model: "Standard V2",
-          denoise: isDehaze ? 0.25 : 0.15,
-          fix_compression: isDehaze ? 0.45 : 0.3,
-          sharpen: isDehaze ? 0.65 : 0.5,
-          face_enhancement: true,
-          face_enhancement_strength: isDehaze ? 0.75 : 0.5,
-          output_format: "jpeg",
-        };
-    const queued = await enqueueGeneration(context, endpoint, queueInput, {
-      scale,
-      enhancement: isDehaze ? "dehaze" : "vivid",
-      model: scale === 4 ? (isDehaze ? "Topaz Standard V2 (Vivid Dehaze)" : "Topaz Standard V2 (Vivid Sharp)") : "Clarity Upscaler",
-    });
-    return NextResponse.json(queued, { status: 202 });
+    const { plan } = prepared;
+    // Topaz for both factors: it bills $0.01 per output megapixel against Clarity's
+    // $0.03, and it keeps product details faithful rather than repainting them.
+    const queued = await enqueueGeneration(
+      context,
+      "fal-ai/topaz/upscale/image",
+      {
+        image_url: prepared.image,
+        upscale_factor: scale,
+        model: "Standard V2",
+        denoise: isDehaze ? 0.25 : 0.15,
+        fix_compression: isDehaze ? 0.45 : 0.3,
+        sharpen: isDehaze ? 0.65 : 0.5,
+        face_enhancement: true,
+        face_enhancement_strength: isDehaze ? 0.75 : 0.5,
+        output_format: "jpeg",
+      },
+      {
+        scale,
+        enhancement: isDehaze ? "dehaze" : "vivid",
+        model: isDehaze ? "Topaz Standard V2 (Vivid Dehaze)" : "Topaz Standard V2 (Vivid Sharp)",
+        input_size: `${plan.inputWidth}x${plan.inputHeight}`,
+        output_size: `${plan.outputWidth}x${plan.outputHeight}`,
+        downscaled: plan.downscaled,
+        credits: plan.credits,
+      }
+    );
+    return NextResponse.json({ ...queued, credits: plan.credits }, { status: 202 });
   } catch (error) {
     console.error("fal.ai upscale request failed", error);
     await failGeneration(context, error instanceof Error ? error.message : "generation_failed");

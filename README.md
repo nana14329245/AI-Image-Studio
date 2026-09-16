@@ -16,8 +16,8 @@ One upload, one credit balance, four tools:
 
 | Tool | What it produces | Cost |
 |---|---|---|
-| **4K Upscale** | 2× (Clarity) or 4× (Topaz) enlargement | 4 credits |
-| **Product Studio** | 4 commercial angles from one product photo | 6 credits |
+| **4K Upscale** | 2× or 4× enlargement (Topaz), long edge up to 4096px | 1.5 credits per output megapixel, 2–26 |
+| **Product Studio** | 4 commercial angles from one product photo | 24 credits |
 | **Ad Studio** | Ad creative in multiple aspect ratios | 8 credits |
 | **Professional Photo** | Portrait cleaned up for CVs and profiles | 6 credits |
 
