@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import { GenerationProgress, useGenerationProgress } from "@/components/GenerationProgress";
+import { TOOL_CREDIT_COST } from "@/lib/plans";
 
 type Source = { url: string; name: string; width: number; height: number };
 const focus = "focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40";
@@ -46,6 +47,7 @@ export default function UpscalePage() {
             </div>
           </div>
           <button disabled={!source||busy||loading} onClick={upscale} className={`btn-primary flex w-full items-center justify-between ${focus}`}><span>{busy?`กำลังขยายภาพ ${progress}%`:"ขยายภาพ"}</span>{busy?<span className="size-5 animate-spin rounded-full border-2 border-black/20 border-t-black"/>:<Arrow/>}</button>
+          <p className="mt-3 text-center font-mono text-xs text-muted">ใช้ {TOOL_CREDIT_COST.upscale} เครดิตต่อครั้ง</p>
           <p className="mt-3 text-xs leading-5 text-muted-soft">เมื่อเริ่มขยาย ภาพจะถูกส่งไปประมวลผลที่ fal.ai</p>
         </div>
         </div>

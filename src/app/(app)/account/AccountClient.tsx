@@ -213,7 +213,7 @@ export default function AccountClient({
                   disabled
                   className="form-field mt-2 cursor-not-allowed bg-surface-hover opacity-80"
                 />
-                <p className="mt-1 text-[11px] text-muted-soft">อีเมลผูกกับระบบ Supabase Auth</p>
+                <p className="mt-1 text-[11px] text-muted-soft">อีเมลนี้ใช้สำหรับเข้าสู่ระบบ เปลี่ยนเองไม่ได้</p>
               </div>
             </div>
 

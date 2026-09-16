@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import { GenerationProgress, useGenerationProgress } from "@/components/GenerationProgress";
+import { TOOL_CREDIT_COST } from "@/lib/plans";
 
 const styles = ["Clean", "Minimal", "Luxury", "Home / Lifestyle", "Natural", "Marketplace"];
 const backgrounds = ["Studio", "Bathroom", "Living Room", "Nature", "Luxury", "Marketplace White"];
@@ -185,8 +186,9 @@ export default function ProductPage() {
               onClick={generate}
               className="btn-primary mt-8 w-full disabled:opacity-40"
             >
-              {loading ? `GENERATING 4 ANGLES ${progress}%` : "GENERATE 4 PRODUCT ANGLES  ↗"}
+              {loading ? `กำลังสร้าง 4 มุมมอง ${progress}%` : "สร้างภาพสินค้า 4 มุมมอง  ↗"}
             </button>
+            <p className="mt-3 text-center font-mono text-xs text-muted">ใช้ {TOOL_CREDIT_COST.product} เครดิตต่อครั้ง</p>
           </div>
 
           {/* Right Column: Dynamic Preview & 4-Angle Selector */}
