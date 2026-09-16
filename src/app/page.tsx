@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import SiteFooter from "@/components/SiteFooter";
 import { PLANS, SIGNUP_CREDITS } from "@/lib/plans";
 
 const TOOLS = [
@@ -154,9 +155,7 @@ export default async function LandingPage() {
         <Link href="/signup" className="btn-primary mt-6 inline-flex items-center gap-2 px-8 text-sm control-focus">สมัครฟรี ↗</Link>
       </section>
 
-      <footer className="border-t border-ink py-8">
-        <div className="page-wrap text-center font-mono text-xs text-muted-soft">AI / IMAGE STUDIO — เครื่องมือ AI สำหรับผู้ขายออนไลน์ไทย</div>
-      </footer>
+      <SiteFooter />
     </>
   );
 }

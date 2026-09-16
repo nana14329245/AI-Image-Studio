@@ -5,7 +5,7 @@ import { NextResponse, type NextRequest } from "next/server";
 // Pages that don't require a signed-in user.
 // /reset-password is intentionally absent: the recovery link signs the user in
 // through /auth/callback first, so it is reached with a session.
-const PUBLIC_PATHS = ["/", "/login", "/signup", "/forgot-password", "/auth", "/api/webhooks"];
+const PUBLIC_PATHS = ["/", "/login", "/signup", "/forgot-password", "/auth", "/api/webhooks", "/terms", "/privacy", "/refund", "/contact"];
 
 function isPublic(pathname: string) {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));

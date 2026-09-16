@@ -53,6 +53,12 @@ export async function createGenerationContext(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "กรุณาเข้าสู่ระบบก่อนใช้งาน" }, { status: 401 });
+  // An unconfirmed address could be anyone's, so it cannot be used to farm signup
+  // credits. Supabase normally blocks sign-in until confirmation; this holds even
+  // if that project setting is turned off.
+  if (!user.email_confirmed_at) {
+    return NextResponse.json({ error: "กรุณายืนยันอีเมลก่อนใช้เครดิต โดยกดลิงก์ในอีเมลที่เราส่งให้ตอนสมัคร" }, { status: 403 });
+  }
 
   const rate = await checkRateLimit({ userId: user.id, ip: getClientIp(req), action: tool });
   if (!rate.allowed) {

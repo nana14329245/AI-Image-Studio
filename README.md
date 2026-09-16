@@ -42,6 +42,8 @@ The parts worth reading, and why they are the way they are:
 
 **Images are private.** The `generations` bucket is not public and has no end-user storage policies. Only server routes touch it, through the service role, after checking that each path is in the caller's own folder. The database stores paths, never URLs, and pages sign one-hour links when they render.
 
+**Analytics waits for consent.** Nothing from PostHog loads until the visitor accepts, refusing is one click of the same size as accepting, and refusing or withdrawing later deletes the identifiers PostHog stored. The legal pages read prices, credit costs and the rollover limit from `src/lib/plans.ts`, so they cannot drift from what the app charges.
+
 **Generation survives an interrupted save.** Jobs are submitted to the fal.ai queue and polled through `/api/generations/[id]/status`, which is owner-scoped. A row stuck in `finalizing` for more than 90 seconds is reclaimed and retried, so a server restart mid-save does not strand the job or the credits.
 
 **Two rate limits, one check.** `check_rate_limit` enforces a sliding window per user *and* per IP in a single round trip. It fails open on a database error — a limiter outage should not take generation down — but surfaces the error so it still gets logged.
@@ -69,7 +71,8 @@ Fill in `.env.local`:
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | billing |
 | `STRIPE_PRICE_PRO`, `STRIPE_PRICE_BUSINESS` | billing |
 | `NEXT_PUBLIC_SITE_URL` | link previews, sitemap, robots.txt (crawling is blocked until set) |
-| `NEXT_PUBLIC_POSTHOG_KEY`, `NEXT_PUBLIC_POSTHOG_HOST` | optional analytics — off when empty |
+| `NEXT_PUBLIC_POSTHOG_KEY`, `NEXT_PUBLIC_POSTHOG_HOST` | optional analytics — off when empty; with a key, loads only after the visitor accepts the consent banner |
+| `NEXT_PUBLIC_LEGAL_SELLER_NAME`, `NEXT_PUBLIC_LEGAL_CONTACT_EMAIL` | seller name and contact address on `/terms`, `/privacy`, `/refund`, `/contact` — the pages show a placeholder until set |
 
 Without a valid Supabase URL and key the app redirects to `/setup` and the API returns 503 rather than silently skipping auth.
 

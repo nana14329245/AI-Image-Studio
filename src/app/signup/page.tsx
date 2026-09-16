@@ -105,7 +105,13 @@ export default function SignupPage() {
           ดำเนินการต่อด้วย Google
         </button>
 
-        <p className="mt-6 text-center text-sm text-muted">
+        <p className="mt-6 text-center text-xs leading-5 text-muted">
+          การสมัครสมาชิกถือว่าคุณยอมรับ{" "}
+          <Link href="/terms" className="underline underline-offset-4 control-focus">ข้อตกลงการใช้บริการ</Link> และ{" "}
+          <Link href="/privacy" className="underline underline-offset-4 control-focus">นโยบายความเป็นส่วนตัว</Link>
+        </p>
+
+        <p className="mt-4 text-center text-sm text-muted">
           มีบัญชีอยู่แล้ว? <Link href="/login" className="font-medium text-ink underline underline-offset-4 control-focus">เข้าสู่ระบบ</Link>
         </p>
       </div>

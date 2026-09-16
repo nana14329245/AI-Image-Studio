@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import CookieSettingsButton from "@/components/CookieSettingsButton";
 import PageHeader from "@/components/PageHeader";
 import ThemeToggle from "@/components/ThemeToggle";
 import { createClient } from "@/lib/supabase/client";
@@ -370,6 +372,12 @@ export default function AccountClient({
         <p className="mt-4 text-xs leading-5 text-muted">
           แพ็กเกจรายเดือนต่ออายุอัตโนมัติจนกว่าจะยกเลิก ยกเลิกได้ทุกเมื่อ และใช้งานได้จนสิ้นรอบบิลที่ชำระไว้
           เครดิตที่ไม่ได้ใช้ทบไปเดือนถัดไปได้ไม่เกิน 2 เท่าของเครดิตรายเดือนของแพ็ก
+          ผู้ให้บริการเป็นบุคคลธรรมดา ไม่ได้จดทะเบียน VAT จึงออกใบกำกับภาษีไม่ได้ ·{" "}
+          <Link href="/terms" className="underline underline-offset-4">ข้อตกลง</Link> ·{" "}
+          <Link href="/refund" className="underline underline-offset-4">การยกเลิกและคืนเงิน</Link> ·{" "}
+          <Link href="/privacy" className="underline underline-offset-4">ความเป็นส่วนตัว</Link> ·{" "}
+          <Link href="/contact" className="underline underline-offset-4">ติดต่อเรา</Link>
+          <CookieSettingsButton className="ml-1 underline" />
         </p>
 
         {/* Credit Usage History (Ledger) */}

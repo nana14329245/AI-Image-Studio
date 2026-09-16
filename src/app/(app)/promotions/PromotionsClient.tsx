@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import { TOOL_CREDIT_COST, planById, type PlanId } from "@/lib/plans";
 import { usePlanActions } from "@/components/usePlanActions";
@@ -122,7 +123,11 @@ export default function PromotionsClient({
             <div>
               <p className="micro">01 / MONTHLY SUBSCRIPTION DEALS</p>
               <h3 className="mt-1 text-xl font-bold">แพ็กเกจรายเดือนสุดคุ้ม (ต่ออายุอัตโนมัติ)</h3>
-              <p className="mt-1 text-xs text-muted">ยกเลิกได้ทุกเมื่อ ใช้งานได้จนสิ้นรอบบิลที่ชำระไว้ · เครดิตที่ไม่ได้ใช้ทบได้ไม่เกิน 2 เท่าของแพ็ก</p>
+              <p className="mt-1 text-xs text-muted">
+                ยกเลิกได้ทุกเมื่อ ใช้งานได้จนสิ้นรอบบิลที่ชำระไว้ · เครดิตที่ไม่ได้ใช้ทบได้ไม่เกิน 2 เท่าของแพ็ก · ไม่มีใบกำกับภาษี ·{" "}
+                <Link href="/terms" className="underline underline-offset-4">ข้อตกลง</Link> ·{" "}
+                <Link href="/refund" className="underline underline-offset-4">การยกเลิกและคืนเงิน</Link>
+              </p>
             </div>
             <span className="font-mono text-xs text-muted">SECURED BY STRIPE</span>
           </div>
