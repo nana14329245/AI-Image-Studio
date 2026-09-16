@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { PLANS, TOOL_CREDIT_COST, planById, planByStripePriceId, stripePriceIdForPlan } from "./plans";
+import { PLANS, TOOL_CREDIT_COST, creditCapForPlan, planById, planByStripePriceId, stripePriceIdForPlan } from "./plans";
 
 const originalEnv = { ...process.env };
 
@@ -77,5 +77,30 @@ describe("plan and credit-cost data", () => {
     for (const cost of Object.values(TOOL_CREDIT_COST)) {
       expect(free.monthlyCredits).toBeGreaterThanOrEqual(cost);
     }
+  });
+});
+
+describe("creditCapForPlan", () => {
+  it("allows two months of each paid plan's allowance to accumulate", () => {
+    expect(creditCapForPlan(planById("pro"))).toBe(1000);
+    expect(creditCapForPlan(planById("business"))).toBe(4000);
+  });
+
+  it("is never below one month's grant, so a renewal always fits", () => {
+    for (const plan of PLANS) {
+      expect(creditCapForPlan(plan)).toBeGreaterThanOrEqual(plan.monthlyCredits);
+    }
+  });
+});
+
+describe("plan copy", () => {
+  it("derives the image count from the current product cost rather than a stale number", () => {
+    const pro = planById("pro");
+    const expected = Math.floor(pro.monthlyCredits / TOOL_CREDIT_COST.product);
+    expect(pro.features.some((f) => f.includes(String(expected)))).toBe(true);
+  });
+
+  it("does not describe the one-off signup grant as monthly", () => {
+    expect(planById("free").features.join(" ")).not.toContain("ต่อเดือน");
   });
 });

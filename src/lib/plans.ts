@@ -6,6 +6,11 @@ export const TOOL_CREDIT_COST: Record<string, number> = {
   portrait: 6,
 };
 
+/** Sales copy stays in step with TOOL_CREDIT_COST instead of hardcoding a count. */
+function approxProductImages(credits: number): string {
+  return `สร้างภาพสินค้าได้ประมาณ ${Math.floor(credits / TOOL_CREDIT_COST.product)} ครั้ง`;
+}
+
 export type PlanId = "free" | "pro" | "business";
 
 export interface PlanDef {
@@ -24,7 +29,7 @@ export const PLANS: PlanDef[] = [
     name: "Free",
     monthlyPriceLabel: "฿0",
     monthlyCredits: 20,
-    features: ["20 เครดิตต่อเดือน", "ใช้ได้ครบทุกเครื่องมือ", "สร้างภาพได้ประมาณ 3 ภาพสินค้า"],
+    features: ["20 เครดิตเมื่อสมัคร", "ใช้ได้ครบทุกเครื่องมือ", approxProductImages(20)],
   },
   {
     id: "pro",
@@ -32,7 +37,7 @@ export const PLANS: PlanDef[] = [
     monthlyPriceLabel: "฿299/เดือน",
     monthlyCredits: 500,
     stripePriceEnvVar: "STRIPE_PRICE_PRO",
-    features: ["500 เครดิตต่อเดือน", "สร้างภาพได้ประมาณ 83 ภาพสินค้า", "คิวประมวลผลเร็วขึ้น"],
+    features: ["500 เครดิตต่อเดือน", approxProductImages(500), "คิวประมวลผลเร็วขึ้น"],
   },
   {
     id: "business",
@@ -40,9 +45,19 @@ export const PLANS: PlanDef[] = [
     monthlyPriceLabel: "฿999/เดือน",
     monthlyCredits: 2000,
     stripePriceEnvVar: "STRIPE_PRICE_BUSINESS",
-    features: ["2,000 เครดิตต่อเดือน", "สร้างภาพได้ประมาณ 333 ภาพสินค้า", "สร้างภาพต่อเนื่องได้ถี่ที่สุด"],
+    features: ["2,000 เครดิตต่อเดือน", approxProductImages(2000), "สร้างภาพต่อเนื่องได้ถี่ที่สุด"],
   },
 ];
+
+/**
+ * Unused subscription credits carry over, up to this many months' worth. Without
+ * a ceiling every unused credit stays a liability for good.
+ */
+export const CREDIT_ROLLOVER_MONTHS = 2;
+
+export function creditCapForPlan(plan: PlanDef): number {
+  return plan.monthlyCredits * CREDIT_ROLLOVER_MONTHS;
+}
 
 export function planById(id: string | null | undefined): PlanDef {
   return PLANS.find((p) => p.id === id) ?? PLANS[0];
