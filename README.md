@@ -103,9 +103,18 @@ npm run lint        # eslint
 npm run typecheck   # tsc --noEmit
 npm test            # vitest
 npm run build       # production build
+npm run test:e2e    # Playwright (first time: npx playwright install chromium)
 ```
 
-CI runs all four on every push, plus a secret scan on the commits each pull request adds.
+CI runs the first four on every push, the public end-to-end tests against a production build, and a secret scan on the commits each pull request adds.
+
+### End-to-end tests
+
+`e2e/public` covers what a signed-out visitor can reach: the landing page and pricing, the legal pages and sitemap, redirects to login for every protected page, the signup form, the analytics consent banner, and horizontal overflow at desktop and phone widths. It needs no accounts or keys.
+
+`e2e/signed-in` runs only when `E2E_EMAIL` and `E2E_PASSWORD` are set in `.env.local`, for a dedicated test account you create through the normal signup. It signs in through the real form, then checks navigation, the phone menu, gallery images loading through signed URLs, the account page, and Product Studio from upload to four results. Every generation, billing and brand-kit write is answered inside the browser by the test (`e2e/support/mockApi.ts`), so a run spends no credits and cannot change a subscription.
+
+Locally the tests reuse the dev server on port 3000. To test the consent banner, run a server built with a `NEXT_PUBLIC_POSTHOG_KEY` and set `E2E_EXPECT_ANALYTICS=1`.
 
 Tests cover the logic where a mistake costs money or leaks something: Stripe price → plan mapping, upload data-URL validation, the allowlist that keeps free text out of generation prompts, brand-logo transparency, provider response parsing, client-IP extraction for rate limiting, and the config guard that keeps secret keys out of the client bundle.
 

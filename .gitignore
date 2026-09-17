@@ -45,3 +45,10 @@ next-env.d.ts
 !.env.example
 node_modules/
 .next/
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/e2e/.auth/

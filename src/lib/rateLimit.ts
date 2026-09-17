@@ -11,6 +11,7 @@ const LIMITS: Record<
   ads: { userLimit: 8, userWindowSeconds: 60, ipLimit: 16, ipWindowSeconds: 60 },
   portrait: { userLimit: 8, userWindowSeconds: 60, ipLimit: 16, ipWindowSeconds: 60 },
   billing: { userLimit: 10, userWindowSeconds: 60, ipLimit: 20, ipWindowSeconds: 60 },
+  account_delete: { userLimit: 3, userWindowSeconds: 3600, ipLimit: 6, ipWindowSeconds: 3600 },
   default: { userLimit: 20, userWindowSeconds: 60, ipLimit: 40, ipWindowSeconds: 60 },
 };
 
