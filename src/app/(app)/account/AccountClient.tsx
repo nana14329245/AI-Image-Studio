@@ -76,6 +76,9 @@ export default function AccountClient({
   const [isSavingName, setIsSavingName] = useState(false);
   const [nameSuccess, setNameSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deleteConfirmEmail, setDeleteConfirmEmail] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -109,6 +112,34 @@ export default function AccountClient({
       setError(err instanceof Error ? err.message : "บันทึกชื่อไม่สำเร็จ");
     } finally {
       setIsSavingName(false);
+    }
+  }
+
+  async function handleDeleteAccount() {
+    if (
+      !window.confirm(
+        "ลบบัญชีถาวร?\n\nระบบจะยกเลิกการสมัครสมาชิก ลบภาพและข้อมูลทั้งหมดของคุณ และไม่สามารถกู้คืนได้"
+      )
+    ) {
+      return;
+    }
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      const response = await fetch("/api/account/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmEmail: deleteConfirmEmail }),
+      });
+      const data = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+      if (!response.ok) throw new Error(typeof data.error === "string" ? data.error : "ลบบัญชีไม่สำเร็จ กรุณาลองใหม่");
+
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      router.push("/");
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "ลบบัญชีไม่สำเร็จ กรุณาลองใหม่");
+      setIsDeleting(false);
     }
   }
 
@@ -423,6 +454,47 @@ export default function AccountClient({
               </table>
             </div>
           )}
+        </div>
+
+        {/* Danger Zone */}
+        <div className="mt-10 border-t border-ink pt-8">
+          <div className="mb-5">
+            <p className="micro">05 / DANGER ZONE</p>
+            <h2 className="mt-1 text-lg font-semibold">ลบบัญชี</h2>
+          </div>
+
+          <div className="border-2 border-danger bg-danger-bg p-6">
+            <p className="text-sm text-ink">
+              การลบบัญชีจะยกเลิกการสมัครสมาชิกทันที ลบภาพ โลโก้ Brand Kit และประวัติเครดิตทั้งหมด
+              การกระทำนี้ไม่สามารถย้อนกลับได้ อ่านรายละเอียดที่{" "}
+              <Link href="/privacy" className="underline underline-offset-4">นโยบายความเป็นส่วนตัว</Link>
+            </p>
+
+            {deleteError && (
+              <p role="alert" className="mt-4 text-sm font-medium text-danger">{deleteError}</p>
+            )}
+
+            <div className="mt-5 flex flex-wrap items-end gap-3">
+              <div className="flex-1 min-w-[220px]">
+                <label className="block text-xs font-medium">พิมพ์อีเมล {profile.email} เพื่อยืนยัน</label>
+                <input
+                  value={deleteConfirmEmail}
+                  onChange={(e) => setDeleteConfirmEmail(e.target.value)}
+                  disabled={isDeleting}
+                  placeholder={profile.email}
+                  className={`form-field mt-2 w-full ${focus}`}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleDeleteAccount}
+                disabled={isDeleting || deleteConfirmEmail.trim().toLowerCase() !== profile.email.toLowerCase()}
+                className={`border-2 border-danger bg-danger px-4 py-2.5 text-xs font-mono uppercase tracking-wider text-white disabled:cursor-not-allowed disabled:opacity-40 ${focus}`}
+              >
+                {isDeleting ? "กำลังลบ..." : "ลบบัญชีถาวร"}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </>

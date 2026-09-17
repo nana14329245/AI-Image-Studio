@@ -3,11 +3,11 @@ import { randomFillSync } from "node:crypto";
 import sharp from "sharp";
 
 /**
- * Answers every request that would spend credits or touch billing inside the
- * browser, before it reaches the app's server. Registered before each signed-in
- * test so a mistake in a test cannot generate images or change a subscription.
- * Tests that need a specific answer register their own route afterwards, which
- * takes precedence.
+ * Answers every request that would spend credits, touch billing, or delete the
+ * account inside the browser, before it reaches the app's server. Registered
+ * before each signed-in test so a mistake in a test cannot generate images,
+ * change a subscription, or delete the test account. Tests that need a
+ * specific answer register their own route afterwards, which takes precedence.
  */
 export async function blockSpendingRequests(page: Page): Promise<Request[]> {
   const blocked: Request[] = [];
@@ -17,6 +17,7 @@ export async function blockSpendingRequests(page: Page): Promise<Request[]> {
   };
   await page.route(/\/api\/(upscale|product|ads|portrait)(\?|$)/, refuse);
   await page.route(/\/api\/billing\//, refuse);
+  await page.route(/\/api\/account\/delete(\?|$)/, refuse);
   await page.route(/\/api\/brand-kit(\?|$)/, async (route) => {
     if (route.request().method() === "GET") return route.continue();
     return refuse(route);
