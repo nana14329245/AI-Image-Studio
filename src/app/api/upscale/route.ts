@@ -50,9 +50,15 @@ export async function POST(req: NextRequest) {
         model: "Standard V2",
         denoise: isDehaze ? 0.25 : 0.15,
         fix_compression: isDehaze ? 0.45 : 0.3,
-        sharpen: isDehaze ? 0.65 : 0.5,
+        sharpen: isDehaze ? 0.75 : 0.6,
+        // A face in the source keeps its own identity: Topaz's face pass is a
+        // repaint, not just detail recovery, and at the old 0.5–0.75 strength
+        // with the default (uncapped) creativity it drifted enough to read as
+        // a different person. Low strength plus zero creativity still cleans
+        // up JPEG artifacts on skin without redrawing features.
         face_enhancement: true,
-        face_enhancement_strength: isDehaze ? 0.75 : 0.5,
+        face_enhancement_strength: 0.25,
+        face_enhancement_creativity: 0,
         output_format: "jpeg",
       },
       {

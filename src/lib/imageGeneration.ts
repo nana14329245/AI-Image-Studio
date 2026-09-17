@@ -354,7 +354,7 @@ export async function completeGeneration(
 
   try {
     const logoPath = context.tool !== "upscale" ? (await getBrandKit(context.supabase, context.userId)).logoPath : null;
-    const paths = await persistGeneratedImages(context.userId, context.generationId, results, logoPath);
+    const paths = await persistGeneratedImages(context.userId, context.generationId, results, logoPath, context.tool);
     // Only paths are stored: the bucket is private, so any URL saved here would
     // stop working. Readers sign fresh links from these paths.
     const updatedMetadata = {
@@ -394,8 +394,31 @@ export async function completeGeneration(
   }
 }
 
+/**
+ * A light finishing pass on an upscaled result: a touch brighter and a touch
+ * sharper, the two things people actually ask for from an upscale. Topaz's own
+ * sharpen/denoise controls affect detail recovery, not overall exposure — there
+ * is no brightness knob on that endpoint — so this runs after the fact instead.
+ */
+async function polishUpscaleResult(image: Blob): Promise<Blob> {
+  const sharp = (await import("sharp")).default;
+  const buffer = Buffer.from(await image.arrayBuffer());
+  const polished = await sharp(buffer)
+    .modulate({ brightness: 1.06 })
+    .sharpen({ sigma: 0.5 })
+    .jpeg({ quality: 95 })
+    .toBuffer();
+  return new Blob([new Uint8Array(polished)], { type: "image/jpeg" });
+}
+
 /** Copies provider results into the private bucket and returns their storage paths. */
-export async function persistGeneratedImages(userId: string, generationId: string, results: string[], logoPath?: string | null) {
+export async function persistGeneratedImages(
+  userId: string,
+  generationId: string,
+  results: string[],
+  logoPath?: string | null,
+  tool?: GenerationContext["tool"]
+) {
   const paths: string[] = [];
   const storage = generationsBucket();
   let logo: Blob | null = null;
@@ -413,6 +436,13 @@ export async function persistGeneratedImages(userId: string, generationId: strin
     if (!providerResponse.ok) throw new Error("Unable to retrieve generated image");
     let image = await providerResponse.blob();
     if (!image.type.startsWith("image/")) throw new Error("Provider returned an invalid image");
+    if (tool === "upscale") {
+      try {
+        image = await polishUpscaleResult(image);
+      } catch (error) {
+        console.error("[persistGeneratedImages] upscale polish failed", error);
+      }
+    }
     if (logo) {
       try {
         image = await overlayBrandLogo(image, logo);
