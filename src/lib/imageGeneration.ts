@@ -1,7 +1,10 @@
 import { createFalClient } from "@fal-ai/client";
 import { NextRequest, NextResponse } from "next/server";
 import { downloadBrandLogo, getBrandKit, overlayBrandLogo } from "@/lib/brandKit";
+import { renderAdCopyOverlay, type AdCopy } from "@/lib/adOverlay";
 import { compositeOntoSolidBackground, type PortraitAspectRatio } from "@/lib/portraitBackground";
+
+const DEFAULT_AD_ACCENT = "#ed5127";
 import { InsufficientCreditsError, refundGenerationCredits, spendCredits } from "@/lib/credits";
 import { TOOL_CREDIT_COST, type FixedPriceTool } from "@/lib/plans";
 import { ownedGenerationPaths } from "@/lib/generationStorage";
@@ -330,14 +333,14 @@ export async function enqueueMultipleGenerations(
     return urls;
   }
 
-  function adCopy(metadata: unknown) {
+  function adCopy(metadata: unknown): AdCopy | undefined {
     if (!metadata || typeof metadata !== "object") return undefined;
     const value = metadata as { productName?: unknown; benefits?: unknown };
     if (!("productName" in value) && !("benefits" in value)) return undefined;
     return {
-      headline: typeof value.productName === "string" && value.productName ? value.productName : "Made for everyday moments",
-      benefit: typeof value.benefits === "string" && value.benefits ? value.benefits : "Thoughtful design for the way you live.",
-      cta: "SHOP NOW",
+      headline: typeof value.productName === "string" && value.productName ? value.productName : "สินค้าคุณภาพสำหรับทุกวัน",
+      benefit: typeof value.benefits === "string" && value.benefits ? value.benefits : "ออกแบบมาเพื่อการใช้งานจริง คุ้มค่าทุกการสั่งซื้อ",
+      cta: "สั่งซื้อเลย",
     };
   }
 
@@ -457,11 +460,24 @@ export async function persistGeneratedImages(
     }
     if (solidBackground) {
       image = await compositeOntoSolidBackground(image, solidBackground.hex, solidBackground.aspectRatio);
-    } else if (logo) {
-      try {
-        image = await overlayBrandLogo(image, logo);
-      } catch (error) {
-        console.error("[persistGeneratedImages] brand logo overlay failed", error);
+    } else {
+      if (tool === "ads") {
+        const copy = adCopy(metadata);
+        if (copy) {
+          try {
+            const accentHex = typeof metadata?.brandPrimaryColor === "string" ? metadata.brandPrimaryColor : DEFAULT_AD_ACCENT;
+            image = await renderAdCopyOverlay(image, copy, accentHex);
+          } catch (error) {
+            console.error("[persistGeneratedImages] ad copy overlay failed", error);
+          }
+        }
+      }
+      if (logo) {
+        try {
+          image = await overlayBrandLogo(image, logo);
+        } catch (error) {
+          console.error("[persistGeneratedImages] brand logo overlay failed", error);
+        }
       }
     }
     const extension = image.type === "image/jpeg" ? "jpg" : image.type === "image/webp" ? "webp" : "png";
