@@ -35,6 +35,7 @@
 | `NEXT_PUBLIC_LEGAL_CONTACT_EMAIL` | อีเมลติดต่อลูกค้า |
 | `NEXT_PUBLIC_POSTHOG_KEY`, `NEXT_PUBLIC_POSTHOG_HOST` | ไม่บังคับ ถ้าใส่ เว็บจะแสดงแบนเนอร์ขอความยินยอม |
 | `NEXT_PUBLIC_SENTRY_DSN` | ไม่บังคับ ถ้าใส่ error ฝั่ง server และ browser จะถูกส่งไป Sentry (ไม่ส่งข้อมูลส่วนตัวหรือ IP) |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | ไม่บังคับ ถ้าใส่ หน้าสมัครสมาชิกจะโชว์ CAPTCHA — ต้องไปเปิด Supabase → Authentication → Attack Protection → Enable CAPTCHA protection ด้วย Secret key คู่กัน ไม่งั้น Supabase จะปฏิเสธ token |
 
 ตัวแปรที่ขึ้นต้นด้วย `NEXT_PUBLIC_` ถูกฝังตอน build ถ้าแก้ค่าภายหลังต้อง Redeploy ถึงจะมีผล
 

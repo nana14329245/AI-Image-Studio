@@ -3,8 +3,16 @@
 import Link from "next/link";
 import { track } from "@/lib/analytics";
 import { SIGNUP_CREDITS } from "@/lib/plans";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
+
+// A no-op until NEXT_PUBLIC_TURNSTILE_SITE_KEY is set, the same rule this app
+// applies to PostHog and Sentry — anyone who clones it without a Cloudflare
+// account still gets a working signup form. Supabase Auth itself verifies the
+// token against the secret key configured in its dashboard; this app never
+// sees or checks the secret.
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() || null;
 
 export default function SignupPage() {
   const [name, setName] = useState("");
@@ -13,12 +21,18 @@ export default function SignupPage() {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const [loading, setLoading] = useState<"password" | "google" | null>(null);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const captchaRef = useRef<TurnstileInstance>(null);
 
   async function handleSignup(e: FormEvent) {
     e.preventDefault();
     setError(null);
     if (password.length < 8) {
       setError("รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร");
+      return;
+    }
+    if (TURNSTILE_SITE_KEY && !captchaToken) {
+      setError("กรุณายืนยันตัวตน (CAPTCHA) ก่อนสมัครสมาชิก");
       return;
     }
     setLoading("password");
@@ -29,9 +43,12 @@ export default function SignupPage() {
       options: {
         data: { full_name: name || undefined },
         emailRedirectTo: `${window.location.origin}/auth/callback`,
+        ...(captchaToken ? { captchaToken } : {}),
       },
     });
     setLoading(null);
+    captchaRef.current?.reset();
+    setCaptchaToken(null);
     if (error) {
       setError(error.message);
       return;
@@ -92,7 +109,20 @@ export default function SignupPage() {
             รหัสผ่าน
             <input type="password" required autoComplete="new-password" minLength={8} className="form-field mt-2" value={password} onChange={(e) => setPassword(e.target.value)} />
           </label>
-          <button type="submit" disabled={loading !== null} className="btn-primary mt-2 flex items-center justify-center gap-2">
+          {TURNSTILE_SITE_KEY && (
+            <Turnstile
+              ref={captchaRef}
+              siteKey={TURNSTILE_SITE_KEY}
+              onSuccess={(token) => setCaptchaToken(token)}
+              onError={() => setCaptchaToken(null)}
+              onExpire={() => setCaptchaToken(null)}
+            />
+          )}
+          <button
+            type="submit"
+            disabled={loading !== null || (TURNSTILE_SITE_KEY !== null && !captchaToken)}
+            className="btn-primary mt-2 flex items-center justify-center gap-2"
+          >
             {loading === "password" && <span className="spinner" />}
             สมัครสมาชิก
           </button>
