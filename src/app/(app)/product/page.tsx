@@ -16,8 +16,10 @@ const ANGLE_PRESETS = [
   { id: 3, tag: "04 / LIFESTYLE", label: "มุมจัดฉาก (In-Context)", desc: "บรรยากาศการใช้งานจริง" },
 ];
 
+const MAX_REFERENCE_IMAGES = 3;
+
 export default function ProductPage() {
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [style, setStyle] = useState("Clean");
   const [bg, setBg] = useState("Studio");
   const [result, setResult] = useState<string | null>(null);
@@ -30,36 +32,42 @@ export default function ProductPage() {
   const { progress, message, track } = useGenerationProgress("product");
   const input = useRef<HTMLInputElement>(null);
 
-  async function selectFile(file?: File) {
-    setError(null);
+  function resetResults() {
     setResult(null);
     setResults([]);
     setSelectedIndex(0);
     setGenerationId(null);
     setView("original");
+  }
+
+  async function addFile(file?: File) {
+    setError(null);
+    resetResults();
     if (!file) return;
     try {
-      setImageUrl((await prepareImageUpload(file, GENERATION_UPLOAD_MAX_EDGE)).dataUrl);
+      const { dataUrl } = await prepareImageUpload(file, GENERATION_UPLOAD_MAX_EDGE);
+      setImageUrls((prev) => [...prev, dataUrl].slice(0, MAX_REFERENCE_IMAGES));
     } catch (cause) {
-      setImageUrl(null);
       setError(uploadErrorMessage(cause));
     }
   }
 
+  function removeImage(index: number) {
+    setError(null);
+    resetResults();
+    setImageUrls((prev) => prev.filter((_, i) => i !== index));
+  }
+
   async function generate() {
-    if (!imageUrl || loading) return;
+    if (imageUrls.length === 0 || loading) return;
     setLoading(true);
     setError(null);
-    setResult(null);
-    setResults([]);
-    setSelectedIndex(0);
-    setGenerationId(null);
-    setView("original");
+    resetResults();
     try {
       const response = await fetch("/api/product", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageUrl, style, background: bg }),
+        body: JSON.stringify({ imageUrls, style, background: bg }),
       });
       const data: { generationId?: string; error?: string } = await response.json();
       if (!response.ok || !data.generationId) throw new Error(data.error || "สร้างภาพสินค้าไม่สำเร็จ");
@@ -80,7 +88,7 @@ export default function ProductPage() {
   }
 
   const activeImage = results[selectedIndex] || result;
-  const previewImage = view === "result" ? activeImage : imageUrl;
+  const previewImage = view === "result" ? activeImage : imageUrls[0];
   const styleLabel = PRODUCT_STYLES.find(o => o.value === style)?.label ?? style;
   const bgLabel = PRODUCT_BACKGROUNDS.find(o => o.value === bg)?.label ?? bg;
 
@@ -96,7 +104,7 @@ export default function ProductPage() {
             To ready-to-sell<span className="text-accent">.</span>
           </>
         }
-        description={<>สร้างภาพสินค้า 4 มุมมองสำหรับ Shopee, Lazada และ TikTok จากรูปต้นฉบับเพียงภาพเดียว</>}
+        description={<>สร้างภาพสินค้า 4 มุมมองสำหรับ Shopee, Lazada และ TikTok — อัปโหลดได้สูงสุด 3 มุมจริงเพื่อความแม่นยำ</>}
       />
       <div className="page-wrap">
         <div className="grid gap-0 border border-ink lg:grid-cols-[1.05fr_.95fr]">
@@ -111,29 +119,52 @@ export default function ProductPage() {
               type="file"
               accept="image/jpeg,image/png,image/webp"
               className="sr-only"
-              onChange={event => void selectFile(event.target.files?.[0])}
+              onChange={event => {
+                void addFile(event.target.files?.[0]);
+                event.target.value = "";
+              }}
             />
-            <button
-              type="button"
-              onClick={() => input.current?.click()}
-              disabled={loading}
-              className="dropzone w-full p-5 disabled:opacity-40"
-            >
-              <span>
-                <span className="mb-4 block text-4xl">＋</span>
-                <span className="block">{imageUrl ? "เปลี่ยนรูปสินค้า" : "อัปโหลดรูปสินค้า"}</span>
-                <span className="mt-2 block text-xs text-muted">รูปเดียวสร้างได้ครบ 4 มุมมอง · สูงสุด {MAX_SOURCE_FILE_MB} MB</span>
-              </span>
-            </button>
+            {imageUrls.length < MAX_REFERENCE_IMAGES && (
+              <button
+                type="button"
+                onClick={() => input.current?.click()}
+                disabled={loading}
+                className="dropzone w-full p-5 disabled:opacity-40"
+              >
+                <span>
+                  <span className="mb-4 block text-4xl">＋</span>
+                  <span className="block">{imageUrls.length > 0 ? "เพิ่มรูปอีกมุม" : "อัปโหลดรูปสินค้า"}</span>
+                  <span className="mt-2 block text-xs text-muted">
+                    ใส่ได้สูงสุด {MAX_REFERENCE_IMAGES} มุม (หน้า/ข้าง/หลัง) ยิ่งใส่จริงยิ่งแม่น · สูงสุด {MAX_SOURCE_FILE_MB} MB ต่อไฟล์
+                  </span>
+                </span>
+              </button>
+            )}
             {error && <p role="alert" className="mt-3 text-sm text-accent">{error}</p>}
-            {imageUrl && (
-              <div className="mt-4 flex items-center gap-3 border border-line-soft p-3">
-                <img src={imageUrl} className="size-14 object-cover" alt="Selected product" />
-                <div>
-                  <p className="text-sm">พร้อมสร้างภาพแล้ว</p>
-                  <p className="micro mt-1 text-muted">4 ANGLES GENERATION → SHARP → COLOR BOOST</p>
-                </div>
+            {imageUrls.length > 0 && (
+              <div className="mt-4 grid grid-cols-3 gap-2">
+                {imageUrls.map((url, i) => (
+                  <div key={url + i} className="relative border border-line-soft">
+                    <img src={url} className="aspect-square w-full object-cover" alt={`รูปสินค้ามุมที่ ${i + 1}`} />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(i)}
+                      disabled={loading}
+                      aria-label={`ลบรูปมุมที่ ${i + 1}`}
+                      className="absolute right-1 top-1 flex size-6 items-center justify-center border border-ink bg-paper text-xs disabled:opacity-40"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
               </div>
+            )}
+            {imageUrls.length > 0 && (
+              <p className="micro mt-2 text-muted">
+                {imageUrls.length === 1
+                  ? "AI จะเดามุมอื่นจากรูปนี้รูปเดียว — เพิ่มรูปจริงอีก 2 มุมเพื่อความแม่นยำ"
+                  : `ใช้รูปจริง ${imageUrls.length} มุม สลับกันสร้างทั้ง 4 ภาพ`}
+              </p>
             )}
 
             <div className="mt-8 border-t border-line-soft pt-6">
@@ -179,7 +210,7 @@ export default function ProductPage() {
 
             <button
               type="button"
-              disabled={!imageUrl || loading}
+              disabled={imageUrls.length === 0 || loading}
               onClick={generate}
               className="btn-primary mt-8 w-full disabled:opacity-40"
             >
@@ -192,7 +223,7 @@ export default function ProductPage() {
           <div className="flex flex-col p-6">
             <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
               <span className="micro">04 / COMPOSITION PREVIEW</span>
-              {imageUrl ? (
+              {imageUrls.length > 0 ? (
                 <CompareToggle view={view} onChange={setView} resultReady={!!activeImage} />
               ) : (
                 <span className="micro text-muted">{styleLabel + " / " + bgLabel}</span>
