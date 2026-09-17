@@ -4,7 +4,13 @@ import { useRef, useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import { GenerationProgress, useGenerationProgress } from "@/components/GenerationProgress";
 import { TOOL_CREDIT_COST } from "@/lib/plans";
-import { PORTRAIT_BACKGROUNDS, PORTRAIT_CAREERS, PORTRAIT_SIZES } from "@/lib/toolOptions";
+import {
+  PORTRAIT_BACKGROUNDS,
+  PORTRAIT_CAREERS,
+  PORTRAIT_SIZES,
+  PORTRAIT_SIZES_WITH_LOCKED_FACE,
+  portraitBackgroundsForSize,
+} from "@/lib/toolOptions";
 import CompareToggle, { type CompareView } from "@/components/CompareToggle";
 import { prepareImageUpload, uploadErrorMessage } from "@/lib/clientImage";
 import { GENERATION_UPLOAD_MAX_EDGE, MAX_SOURCE_FILE_MB } from "@/lib/uploadLimits";
@@ -84,6 +90,17 @@ export default function PortraitPage() {
   const previewImage = view === "result" ? result : imageUrl;
   const careerLabel = PORTRAIT_CAREERS.find(o => o.value === career)?.label ?? career;
   const backgroundLabel = PORTRAIT_BACKGROUNDS.find(o => o.value === background)?.label ?? background;
+  const lockFace = PORTRAIT_SIZES_WITH_LOCKED_FACE.has(size);
+  const availableBackgrounds = portraitBackgroundsForSize(size);
+
+  const selectSize = (nextSize: string) => {
+    setSize(nextSize);
+    // "Office" is a scene an AI paints; Passport/1×1 never run that model, so
+    // switching to one of those sizes with Office still selected needs a fallback.
+    if (!portraitBackgroundsForSize(nextSize).some((option) => option.value === background)) {
+      setBackground("White");
+    }
+  };
 
   return (
     <>
@@ -121,17 +138,23 @@ export default function PortraitPage() {
             <div className="mt-8 grid gap-8 md:grid-cols-3">
               <div>
                 <p className="micro mb-3">02 / CAREER</p>
-                <div className="grid gap-2">{PORTRAIT_CAREERS.map((option) => <button type="button" key={option.value} aria-pressed={career === option.value} onClick={() => setCareer(option.value)} className={`option ${career === option.value ? "selected" : ""}`}>{option.label}</button>)}</div>
+                <div className="grid gap-2">{PORTRAIT_CAREERS.map((option) => <button type="button" key={option.value} disabled={lockFace} aria-pressed={career === option.value} onClick={() => setCareer(option.value)} className={`option ${career === option.value ? "selected" : ""} ${lockFace ? "opacity-40" : ""}`}>{option.label}</button>)}</div>
+                {lockFace && <p className="mt-2 text-xs text-muted">รูปพาสปอร์ต/1×1 ไม่เปลี่ยนชุด — คงรูปต้นฉบับไว้ทั้งหมด</p>}
               </div>
               <div>
                 <p className="micro mb-3">03 / BACKGROUND</p>
-                <div className="grid gap-2">{PORTRAIT_BACKGROUNDS.map((option) => <button type="button" key={option.value} aria-pressed={background === option.value} onClick={() => setBackground(option.value)} className={`option ${background === option.value ? "selected" : ""}`}>{option.label}</button>)}</div>
+                <div className="grid gap-2">{availableBackgrounds.map((option) => <button type="button" key={option.value} aria-pressed={background === option.value} onClick={() => setBackground(option.value)} className={`option ${background === option.value ? "selected" : ""}`}>{option.label}</button>)}</div>
               </div>
               <div>
                 <p className="micro mb-3">04 / SIZE</p>
-                <div className="grid gap-2">{PORTRAIT_SIZES.map((option) => <button type="button" key={option.value} aria-pressed={size === option.value} onClick={() => setSize(option.value)} className={`option ${size === option.value ? "selected" : ""}`}>{option.label}</button>)}</div>
+                <div className="grid gap-2">{PORTRAIT_SIZES.map((option) => <button type="button" key={option.value} aria-pressed={size === option.value} onClick={() => selectSize(option.value)} className={`option ${size === option.value ? "selected" : ""}`}>{option.label}</button>)}</div>
               </div>
             </div>
+            {lockFace && (
+              <p className="mt-4 border border-line bg-surface-alt p-3 text-xs leading-5 text-muted">
+                ขนาดนี้ใช้สำหรับเอกสารทางการ ระบบจะ<strong>ไม่ใช้ AI แตะหน้าหรือเปลี่ยนชุด</strong> — เปลี่ยนเฉพาะพื้นหลังให้เป็นสีพื้นและครอปให้ได้สัดส่วนเท่านั้น
+              </p>
+            )}
             <button type="button" disabled={!imageUrl || isGenerating} onClick={() => void generatePortrait()} className="btn-primary mt-8 w-full disabled:cursor-not-allowed disabled:opacity-50">
               {isGenerating ? `กำลังสร้างภาพ ${progress}%` : "สร้างภาพโปรไฟล์  ↗"}
             </button>

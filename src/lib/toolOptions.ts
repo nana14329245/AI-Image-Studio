@@ -66,6 +66,33 @@ export const PORTRAIT_SIZES: readonly ToolOption[] = [
   { value: "Passport", label: "รูปพาสปอร์ต" },
 ];
 
+/**
+ * Flat hex color behind each solid PORTRAIT_BACKGROUNDS choice. "Office" has no
+ * entry on purpose: it is a photographic scene, not a color, and only makes
+ * sense when an AI model repaints the background — which the Passport and
+ * 1 × 1 sizes never do (see PORTRAIT_SIZES_WITH_LOCKED_FACE below).
+ */
+export const PORTRAIT_BACKGROUND_HEX: Readonly<Record<string, string>> = {
+  White: "#ffffff",
+  Gray: "#d9d9d9",
+  Blue: "#3b6fa0",
+};
+
+/**
+ * Sizes where the face must not be touched at all — an ID-style photo where a
+ * generated face would be a different person for an official purpose. These
+ * sizes skip the generative model entirely: only the background is replaced
+ * (with a flat color from PORTRAIT_BACKGROUND_HEX) and the result is cropped
+ * to size, so "Office" is not a valid choice for them.
+ */
+export const PORTRAIT_SIZES_WITH_LOCKED_FACE: ReadonlySet<string> = new Set(["Passport", "1 × 1"]);
+
+/** Backgrounds valid for a given size — excludes "Office" once the face is locked. */
+export function portraitBackgroundsForSize(size: string): readonly ToolOption[] {
+  if (!PORTRAIT_SIZES_WITH_LOCKED_FACE.has(size)) return PORTRAIT_BACKGROUNDS;
+  return PORTRAIT_BACKGROUNDS.filter((option) => option.value in PORTRAIT_BACKGROUND_HEX);
+}
+
 /** Guards a value posted by the client against the list the UI actually offers. */
 export function isAllowedOption(options: readonly ToolOption[], value: unknown): value is string {
   return typeof value === "string" && options.some((option) => option.value === value);

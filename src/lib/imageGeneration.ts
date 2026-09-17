@@ -1,6 +1,7 @@
 import { createFalClient } from "@fal-ai/client";
 import { NextRequest, NextResponse } from "next/server";
 import { downloadBrandLogo, getBrandKit, overlayBrandLogo } from "@/lib/brandKit";
+import { compositeOntoSolidBackground, type PortraitAspectRatio } from "@/lib/portraitBackground";
 import { InsufficientCreditsError, refundGenerationCredits, spendCredits } from "@/lib/credits";
 import { TOOL_CREDIT_COST, type FixedPriceTool } from "@/lib/plans";
 import { ownedGenerationPaths } from "@/lib/generationStorage";
@@ -354,7 +355,7 @@ export async function completeGeneration(
 
   try {
     const logoPath = context.tool !== "upscale" ? (await getBrandKit(context.supabase, context.userId)).logoPath : null;
-    const paths = await persistGeneratedImages(context.userId, context.generationId, results, logoPath, context.tool);
+    const paths = await persistGeneratedImages(context.userId, context.generationId, results, logoPath, context.tool, metadata);
     // Only paths are stored: the bucket is private, so any URL saved here would
     // stop working. Readers sign fresh links from these paths.
     const updatedMetadata = {
@@ -417,7 +418,8 @@ export async function persistGeneratedImages(
   generationId: string,
   results: string[],
   logoPath?: string | null,
-  tool?: GenerationContext["tool"]
+  tool?: GenerationContext["tool"],
+  metadata?: Record<string, unknown>
 ) {
   const paths: string[] = [];
   const storage = generationsBucket();
@@ -429,6 +431,16 @@ export async function persistGeneratedImages(
       console.error("[persistGeneratedImages] brand logo download failed", error);
     }
   }
+
+  // Passport/1×1 Professional Photo never touches the face: the provider
+  // result here is a transparent cutout from a background-removal model, not
+  // a finished photo, so this composite is not optional the way the finishing
+  // touches below are — a failure must fail the generation, not save the
+  // uncomposited cutout as if it were the result.
+  const solidBackground =
+    tool === "portrait" && metadata?.mode === "solid_background"
+      ? { hex: String(metadata.backgroundHex), aspectRatio: metadata.aspectRatio as PortraitAspectRatio }
+      : null;
 
   for (let i = 0; i < results.length; i += 1) {
     const result = results[i];
@@ -443,7 +455,9 @@ export async function persistGeneratedImages(
         console.error("[persistGeneratedImages] upscale polish failed", error);
       }
     }
-    if (logo) {
+    if (solidBackground) {
+      image = await compositeOntoSolidBackground(image, solidBackground.hex, solidBackground.aspectRatio);
+    } else if (logo) {
       try {
         image = await overlayBrandLogo(image, logo);
       } catch (error) {
