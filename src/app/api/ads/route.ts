@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
       aspect_ratio: aspectRatio,
       num_images: 1,
       prompt: `Create one premium ${platform} advertising image for ${productName || "the product in the reference image"}. Preserve the exact product's shape, color, branding, and details. Showcase these benefits visually: ${benefits || "high quality and everyday usefulness"}. Use a compelling commercial composition with clear negative space for separately overlaid copy. Do not render text, letters, logos, or watermarks in the image.${brandHint ? ` ${brandHint}` : ""}`,
-    }, { productName, benefits, platform, format });
+    }, { productName, benefits, platform, format, brandPrimaryColor: kit.primaryColor });
     return NextResponse.json(queued, { status: 202 });
   } catch (error) {
     console.error("fal.ai ad generation failed", error);

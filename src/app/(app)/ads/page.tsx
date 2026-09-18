@@ -114,6 +114,7 @@ export default function AdsPage() {
           </div>
           {generated && <div className="mt-5 border border-line bg-surface-hover p-5">
             <p className="micro mb-4">05 / AD COPY</p>
+            <p className="mb-4 text-xs text-muted">ข้อความนี้ถูกใส่ลงในภาพให้แล้ว ดาวน์โหลดแล้วใช้ได้เลย</p>
             <dl className="grid gap-4 sm:grid-cols-3">
               <div><dt className="micro mb-1 text-muted">HEADLINE</dt><dd className="text-sm font-semibold">{generated.copy.headline}</dd></div>
               <div><dt className="micro mb-1 text-muted">BENEFIT</dt><dd className="text-sm">{generated.copy.benefit}</dd></div>

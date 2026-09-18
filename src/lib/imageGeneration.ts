@@ -1,6 +1,10 @@
 import { createFalClient } from "@fal-ai/client";
 import { NextRequest, NextResponse } from "next/server";
 import { downloadBrandLogo, getBrandKit, overlayBrandLogo } from "@/lib/brandKit";
+import { renderAdCopyOverlay, type AdCopy } from "@/lib/adOverlay";
+import { compositeOntoSolidBackground, type PortraitAspectRatio } from "@/lib/portraitBackground";
+
+const DEFAULT_AD_ACCENT = "#ed5127";
 import { InsufficientCreditsError, refundGenerationCredits, spendCredits } from "@/lib/credits";
 import { TOOL_CREDIT_COST, type FixedPriceTool } from "@/lib/plans";
 import { ownedGenerationPaths } from "@/lib/generationStorage";
@@ -329,14 +333,14 @@ export async function enqueueMultipleGenerations(
     return urls;
   }
 
-  function adCopy(metadata: unknown) {
+  function adCopy(metadata: unknown): AdCopy | undefined {
     if (!metadata || typeof metadata !== "object") return undefined;
     const value = metadata as { productName?: unknown; benefits?: unknown };
     if (!("productName" in value) && !("benefits" in value)) return undefined;
     return {
-      headline: typeof value.productName === "string" && value.productName ? value.productName : "Made for everyday moments",
-      benefit: typeof value.benefits === "string" && value.benefits ? value.benefits : "Thoughtful design for the way you live.",
-      cta: "SHOP NOW",
+      headline: typeof value.productName === "string" && value.productName ? value.productName : "สินค้าคุณภาพสำหรับทุกวัน",
+      benefit: typeof value.benefits === "string" && value.benefits ? value.benefits : "ออกแบบมาเพื่อการใช้งานจริง คุ้มค่าทุกการสั่งซื้อ",
+      cta: "สั่งซื้อเลย",
     };
   }
 
@@ -354,7 +358,7 @@ export async function completeGeneration(
 
   try {
     const logoPath = context.tool !== "upscale" ? (await getBrandKit(context.supabase, context.userId)).logoPath : null;
-    const paths = await persistGeneratedImages(context.userId, context.generationId, results, logoPath);
+    const paths = await persistGeneratedImages(context.userId, context.generationId, results, logoPath, context.tool, metadata);
     // Only paths are stored: the bucket is private, so any URL saved here would
     // stop working. Readers sign fresh links from these paths.
     const updatedMetadata = {
@@ -394,8 +398,32 @@ export async function completeGeneration(
   }
 }
 
+/**
+ * A light finishing pass on an upscaled result: a touch brighter and a touch
+ * sharper, the two things people actually ask for from an upscale. Topaz's own
+ * sharpen/denoise controls affect detail recovery, not overall exposure — there
+ * is no brightness knob on that endpoint — so this runs after the fact instead.
+ */
+async function polishUpscaleResult(image: Blob): Promise<Blob> {
+  const sharp = (await import("sharp")).default;
+  const buffer = Buffer.from(await image.arrayBuffer());
+  const polished = await sharp(buffer)
+    .modulate({ brightness: 1.06 })
+    .sharpen({ sigma: 0.5 })
+    .jpeg({ quality: 95 })
+    .toBuffer();
+  return new Blob([new Uint8Array(polished)], { type: "image/jpeg" });
+}
+
 /** Copies provider results into the private bucket and returns their storage paths. */
-export async function persistGeneratedImages(userId: string, generationId: string, results: string[], logoPath?: string | null) {
+export async function persistGeneratedImages(
+  userId: string,
+  generationId: string,
+  results: string[],
+  logoPath?: string | null,
+  tool?: GenerationContext["tool"],
+  metadata?: Record<string, unknown>
+) {
   const paths: string[] = [];
   const storage = generationsBucket();
   let logo: Blob | null = null;
@@ -407,17 +435,49 @@ export async function persistGeneratedImages(userId: string, generationId: strin
     }
   }
 
+  // Passport/1×1 Professional Photo never touches the face: the provider
+  // result here is a transparent cutout from a background-removal model, not
+  // a finished photo, so this composite is not optional the way the finishing
+  // touches below are — a failure must fail the generation, not save the
+  // uncomposited cutout as if it were the result.
+  const solidBackground =
+    tool === "portrait" && metadata?.mode === "solid_background"
+      ? { hex: String(metadata.backgroundHex), aspectRatio: metadata.aspectRatio as PortraitAspectRatio }
+      : null;
+
   for (let i = 0; i < results.length; i += 1) {
     const result = results[i];
     const providerResponse = await fetch(result);
     if (!providerResponse.ok) throw new Error("Unable to retrieve generated image");
     let image = await providerResponse.blob();
     if (!image.type.startsWith("image/")) throw new Error("Provider returned an invalid image");
-    if (logo) {
+    if (tool === "upscale") {
       try {
-        image = await overlayBrandLogo(image, logo);
+        image = await polishUpscaleResult(image);
       } catch (error) {
-        console.error("[persistGeneratedImages] brand logo overlay failed", error);
+        console.error("[persistGeneratedImages] upscale polish failed", error);
+      }
+    }
+    if (solidBackground) {
+      image = await compositeOntoSolidBackground(image, solidBackground.hex, solidBackground.aspectRatio);
+    } else {
+      if (tool === "ads") {
+        const copy = adCopy(metadata);
+        if (copy) {
+          try {
+            const accentHex = typeof metadata?.brandPrimaryColor === "string" ? metadata.brandPrimaryColor : DEFAULT_AD_ACCENT;
+            image = await renderAdCopyOverlay(image, copy, accentHex);
+          } catch (error) {
+            console.error("[persistGeneratedImages] ad copy overlay failed", error);
+          }
+        }
+      }
+      if (logo) {
+        try {
+          image = await overlayBrandLogo(image, logo);
+        } catch (error) {
+          console.error("[persistGeneratedImages] brand logo overlay failed", error);
+        }
       }
     }
     const extension = image.type === "image/jpeg" ? "jpg" : image.type === "image/webp" ? "webp" : "png";
